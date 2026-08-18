@@ -1,110 +1,133 @@
-# LangGraph Fundamentals — Comprehensive Study Notes
+# LangGraph Mastery: The Intuitive, Technical Study Guide
 
-A complete, practical, and in-depth guide to understanding **LangGraph**, based on the core tutorial notebooks in `Langgraph_basics/`.
+> **Target Audience:** Data Scientists & AI Engineers  
+> **Source Material:** `Langgraph_basics/` Notebooks (`1-simplegraph.ipynb` $\rightarrow$ `6-chatbotswithmultipletools.ipynb`)  
+> **Focus:** Rigorous architectural clarity, plain-English mental models, and production patterns.
 
 ---
 
 ## 📑 Table of Contents
-1. [Overview & Core Mental Model](#1-overview--core-mental-model)
-2. [Module 1: Simple Graph Construction (`1-simplegraph.ipynb`)](#2-module-1-simple-graph-construction-1-simplegraphipynb)
-   - [State Definition](#state-definition)
-   - [Nodes & State Overwrite Behavior](#nodes--state-overwrite-behavior)
-   - [Conditional Routing & Edges](#conditional-routing--edges)
-   - [Graph Compilation & Invocation](#graph-compilation--invocation)
-3. [Module 2: Conversational Chatbot & Reducers (`2-chatbot.ipynb`)](#3-module-2-conversational-chatbot--reducers-2-chatbotipynb)
-   - [Why Reducers are Required](#why-reducers-are-required)
-   - [The `add_messages` Reducer](#the-add_messages-reducer)
-   - [When and How State Messages Get Updated (Lifecycle)](#when-and-how-state-messages-get-updated-lifecycle)
-   - [Chatbot Node with LLMs (Groq & OpenAI)](#chatbot-node-with-llms-groq--openai)
-   - [Streaming Modes: `updates` vs `values`](#streaming-modes-updates-vs-values)
-4. [Module 3: State Schemas — `TypedDict` vs `@dataclass` (`3-DataclassStateSchema.ipynb`)](#4-module-3-state-schemas--typeddict-vs-dataclass-3-dataclassstateschemaipynb)
-   - [`TypedDict` Schema & Dictionary Access](#typeddict-schema--dictionary-access)
-   - [`@dataclass` Schema & Dot-Notation Access](#dataclass-schema--dot-notation-access)
-   - [Input Flexibility: Dataclass Instance vs Raw Dict](#input-flexibility-dataclass-instance-vs-raw-dict)
-5. [Module 4: Runtime Validation with Pydantic (`4-pydantic.ipynb`)](#5-module-4-runtime-validation-with-pydantic-4-pydanticipynb)
-   - [Why Use Pydantic `BaseModel`?](#why-use-pydantic-basemodel)
-   - [Field Validation & Constraints](#field-validation--constraints)
-   - [Automatic Type Coercion](#automatic-type-coercion)
-   - [Catching Runtime `ValidationError`](#catching-runtime-validationerror)
-6. [Module 5: Tool Calling & ReAct Cycles (`5-ChainsLangGraph.ipynb`)](#6-module-5-tool-calling--react-cycles-5-chainslanggraphipynb)
-   - [Message Types in LangChain / LangGraph](#message-types-in-langchain--langgraph)
-   - [Defining Custom Tools with `@tool`](#defining-custom-tools-with-tool)
-   - [Tool Binding with `llm.bind_tools()`](#tool-binding-with-llmbind_tools)
-   - [The `ToolNode` and `tools_condition` Helpers](#the-toolnode-and-tools_condition-helpers)
-   - [The ReAct Graph Loop](#the-react-graph-loop)
-7. [Module 6: Multi-Tool Assistants & Community Integrations (`6-chatbotswithmultipletools.ipynb`)](#7-module-6-multi-tool-assistants--community-integrations-6-chatbotswithmultipletoolsipynb)
-   - [Integrating Community Tools (Arxiv & Wikipedia)](#integrating-community-tools-arxiv--wikipedia)
-   - [Custom Safe Computation Tools](#custom-safe-computation-tools)
-   - [Building the Multi-Tool Agent](#building-the-multi-tool-agent)
-   - [Prebuilt Agent Shortcut: `create_react_agent`](#prebuilt-agent-shortcut-create_react_agent)
-8. [Summary & Architectural Comparison Cheat Sheet](#8-summary--architectural-comparison-cheat-sheet)
+1. [Part 1: The Core Mental Model & Graph Foundations](#1-the-core-mental-model--graph-foundations)
+   - [The Analogy: The "Shared Clipboard" Workshop](#the-analogy-the-shared-clipboard-workshop)
+   - [Why LangGraph? (Linear Chains vs Cyclic State Machines)](#why-langgraph-linear-chains-vs-cyclic-state-machines)
+   - [The 5 Core Building Blocks](#the-5-core-building-blocks)
+   - [Hands-on: Building Your First Graph (`1-simplegraph.ipynb`)](#hands-on-building-your-first-graph-1-simplegraphipynb)
+2. [Part 2: Conversational Agents & State Reducers](#2-conversational-agents--state-reducers)
+   - [Jargon Buster: What is a "Reducer"?](#jargon-buster-what-is-a-reducer)
+   - [The `add_messages` Reducer (`2-chatbot.ipynb`)](#the-add_messages-reducer-2-chatbotipynb)
+   - [Under the Hood: The 2-Point State Update Lifecycle](#under-the-hood-the-2-point-state-update-lifecycle)
+   - [Chatbot Node with LLMs (Groq / OpenAI)](#chatbot-node-with-llms-groq--openai)
+   - [Real-time Streaming: `updates` vs `values`](#real-time-streaming-updates-vs-values)
+3. [Part 3: Autonomous Agents & Tool Calling (ReAct Loop)](#3-autonomous-agents--tool-calling-react-loop)
+   - [The 4 Message Types in LangChain / LangGraph](#the-4-message-types-in-langchain--langgraph)
+   - [Defining Custom Tools with `@tool` (`5-ChainsLangGraph.ipynb`)](#defining-custom-tools-with-tool-5-chainslanggraphipynb)
+   - [Binding Tools to LLMs (`llm.bind_tools()`)](#binding-tools-to-llms-llmbind_tools)
+   - [Prebuilt Helpers: `ToolNode` and `tools_condition`](#prebuilt-helpers-toolnode-and-tools_condition)
+   - [The ReAct Cycle: Full Trace & Execution Walkthrough](#the-react-cycle-full-trace--execution-walkthrough)
+   - [Multi-Tool Assistants: Arxiv, Wikipedia & Safe Math (`6-chatbotswithmultipletools.ipynb`)](#multi-tool-assistants-arxiv-wikipedia--safe-math-6-chatbotswithmultipletoolsipynb)
+   - [Production Shortcut: `create_react_agent`](#production-shortcut-create_react_agent)
+4. [Part 4: State Schema Architectures & Data Validation](#4-state-schema-architectures--data-validation)
+   - [Schema Option 1: `TypedDict` (`state["key"]`) (`3-DataclassStateSchema.ipynb`)](#schema-option-1-typeddict-statekey-3-dataclassstateschemaipynb)
+   - [Schema Option 2: `@dataclass` (`state.key`)](#schema-option-2-dataclass-statekey)
+   - [Input Flexibility: Dataclass Object vs Raw Dictionary](#input-flexibility-dataclass-object-vs-raw-dictionary)
+   - [Schema Option 3: Production Validation with Pydantic (`4-pydantic.ipynb`)](#schema-option-3-production-validation-with-pydantic-4-pydanticipynb)
+   - [Field Constraints, Automatic Coercion & Runtime Errors](#field-constraints-automatic-coercion--runtime-errors)
+5. [Part 5: Comprehensive Quick-Reference Cheat Sheet](#5-comprehensive-quick-reference-cheat-sheet)
+   - [State Schema Architectural Comparison Matrix](#state-schema-architectural-comparison-matrix)
+   - [LangGraph Core API Quick Reference](#langgraph-core-api-quick-reference)
+   - [Common Gotchas & Best Practices Checklist](#common-gotchas--best-practices-checklist)
 
 ---
 
-## 1. Overview & Core Mental Model
+# 1. The Core Mental Model & Graph Foundations
 
-**LangGraph** is a library built on top of LangChain for creating stateful, multi-actor applications with LLMs. Unlike traditional linear chains (DAGs), LangGraph allows:
-- **Cycles and Loops**: Iterative agent reasoning loops (e.g., ReAct, reflection, correction).
-- **State Persistence**: Centralized state that flows between nodes and is updated deterministically.
-- **Fine-Grained Flow Control**: Dynamic branching and conditional routing.
-- **Human-in-the-Loop & Streaming**: Pausing, inspecting, resuming execution, and streaming intermediate states.
+### The Analogy: The "Shared Clipboard" Workshop
+Imagine an assembly line workshop where workers collaborate on a project:
+- In the center of the room sits a **Shared Clipboard (State)** containing the project documents, instructions, and history.
+- Each specialist worker at a workstation is a **Node**. A worker takes the clipboard, reads relevant fields, performs their specific task (e.g., writes code, calls an API, or calculates a value), and writes their update back onto the clipboard.
+- The supervisor instructions on which desk to visit next are the **Edges** (direct roads or conditional decision branches).
+- The entrance is **START**, and the shipping dock is **END**.
 
-### Core Building Blocks:
 ```mermaid
 graph LR
-    subgraph LangGraph Core
-        S[State Schema] --> N[Nodes / Python Functions]
-        N --> E[Edges / Routing]
-        E --> C[Compiled Graph]
+    subgraph Workshop Flow
+        START([START: Entrance]) --> W1[Worker Node A]
+        W1 -->|Reads & Writes| CB[(Shared Clipboard / State)]
+        W1 -->|Router Edge| Decision{Inspection}
+        Decision -->|Pass| W2[Worker Node B]
+        Decision -->|Retry / Loop| W1
+        W2 --> END([END: Delivery])
     end
 ```
 
-| Concept | Description |
-| :--- | :--- |
-| **State** | The shared memory/data structure passed to and updated by all nodes. |
-| **Nodes** | Standard Python functions (`def node(state) -> dict`) that perform work and return state updates. |
-| **Edges** | Define the execution path. Can be static (`add_edge`) or dynamic (`add_conditional_edges`). |
-| **START / END** | Built-in sentinel nodes representing graph entry and termination points. |
-| **Compile** | Validates the graph topology and produces a runnable `CompiledGraph`. |
+---
+
+### Why LangGraph? (Linear Chains vs Cyclic State Machines)
+
+Traditional LLM pipelines (e.g., standard LangChain `RunnableSequence` or LCEL) are **Directed Acyclic Graphs (DAGs)**—they only flow strictly forward in one direction.
+
+| Feature | Standard Linear Chains (DAGs) | LangGraph (Cyclic Graphs) |
+| :--- | :--- | :--- |
+| **Execution Flow** | One-way pipeline ($A \rightarrow B \rightarrow C$) | Cyclic state machine ($A \rightarrow B \rightarrow A \rightarrow \dots$) |
+| **Error Recovery** | Hard to loop back if output is flawed | Native loops for self-reflection & corrections |
+| **Agent Reasoning** | Rigid single-pass execution | Multi-step ReAct loops (Reason $\rightarrow$ Act $\rightarrow$ Observe) |
+| **State Management** | Passed through args down the chain | Centralized, persistent state schema |
 
 ---
 
-## 2. Module 1: Simple Graph Construction (`1-simplegraph.ipynb`)
+### The 5 Core Building Blocks
 
-This notebook demonstrates the most fundamental LangGraph workflow: state creation, node definitions, conditional routing, graph compilation, and execution.
+```mermaid
+graph TD
+    S[1. State Schema: Data Blueprint] --> N[2. Nodes: Python Worker Functions]
+    N --> E[3. Edges: Fixed & Conditional Routing]
+    E --> SE[4. START / END: Lifecycle Boundaries]
+    SE --> C[5. Compile: Executable Runnable Engine]
+```
 
-### State Definition
-State is defined using `TypedDict` from Python's standard `typing` module:
+1. **State Schema:** A data structure (`TypedDict`, `@dataclass`, or `Pydantic BaseModel`) defining what data the graph holds.
+2. **Nodes:** Normal Python functions (`def node_fn(state) -> dict`) that receive the current state and return state updates.
+3. **Edges:** Directional links that connect nodes.
+   - **Normal Edge (`add_edge`):** Always goes from Node A to Node B.
+   - **Conditional Edge (`add_conditional_edges`):** Calls a router function to dynamically choose the destination node.
+4. **START & END:** Built-in virtual nodes marking the graph entrypoint and termination points.
+5. **Compile (`builder.compile()`):** Validates the graph topology and produces a runnable `CompiledGraph`.
 
+---
+
+### Hands-on: Building Your First Graph (`1-simplegraph.ipynb`)
+
+Let's build a simple graph where a user inputs text, a node plans an activity, a router randomly picks a sport (Cricket or Badminton), and the chosen node appends its decision.
+
+#### Step 1: Define the State
 ```python
 from typing import TypedDict
 
+# The shared clipboard holds a single string: 'graph_info'
 class State(TypedDict):
     graph_info: str
 ```
 
-### Nodes & State Overwrite Behavior
-Nodes are standard Python functions that accept the state as their first parameter and return a dictionary with key-value pairs to update in the state.
-
-> [!NOTE]
-> By default, if no reducer is specified, returned dictionary keys **overwrite** the previous state value.
+#### Step 2: Define Worker Nodes
+> [!IMPORTANT]
+> **Default State Overwrite Rule:** If no reducer is specified, returning a key in a node's output dictionary will **completely overwrite** the old value in the state.
 
 ```python
 def start_play(state: State) -> dict:
-    print("--- start_play node has been called ---")
+    print("--- Executing: start_play ---")
     return {"graph_info": state['graph_info'] + " I am planning to play"}
 
 def cricket(state: State) -> dict:
-    print("--- cricket node has been called ---")
+    print("--- Executing: cricket ---")
     return {"graph_info": state['graph_info'] + " Cricket"}
 
 def badminton(state: State) -> dict:
-    print("--- badminton node has been called ---")
+    print("--- Executing: badminton ---")
     return {"graph_info": state['graph_info'] + " Badminton"}
 ```
 
-### Conditional Routing & Edges
-A router function evaluates the state and returns a `Literal` string matching the target node name:
+#### Step 3: Define Conditional Routing Logic
+A router function evaluates the state and returns the **string name** of the target node:
 
 ```python
 import random
@@ -117,13 +140,13 @@ def random_play(state: State) -> Literal['cricket', 'badminton']:
         return "badminton"
 ```
 
-### Graph Assembly, Compilation & Invocation
+#### Step 4: Assemble, Compile, and Invoke
 
 ```mermaid
 graph TD
-    __start__([START]) --> start_play[start_play]
-    start_play -->|random > 0.5| cricket[cricket]
-    start_play -->|random <= 0.5| badminton[badminton]
+    __start__([START]) --> start_play[start_play Node]
+    start_play -->|random > 0.5| cricket[cricket Node]
+    start_play -->|random <= 0.5| badminton[badminton Node]
     cricket --> __end__([END])
     badminton --> __end__([END])
 ```
@@ -131,293 +154,186 @@ graph TD
 ```python
 from langgraph.graph import StateGraph, START, END
 
-# 1. Initialize graph with state schema
+# 1. Initialize builder with schema
 builder = StateGraph(State)
 
-# 2. Add nodes
+# 2. Register nodes
 builder.add_node("start_play", start_play)
 builder.add_node("cricket", cricket)
 builder.add_node("badminton", badminton)
 
-# 3. Add static and conditional edges
+# 3. Connect nodes with edges
 builder.add_edge(START, "start_play")
 builder.add_conditional_edges("start_play", random_play)
 builder.add_edge("cricket", END)
 builder.add_edge("badminton", END)
 
-# 4. Compile the graph
+# 4. Compile into an executable graph
 graph = builder.compile()
 
-# 5. Invoke with initial input
+# 5. Invoke with initial state payload
 result = graph.invoke({"graph_info": "Hey My name is Krish"})
 print(result)
-# Output: {'graph_info': 'Hey My name is Krish I am planning to play Cricket'}
+# Sample Output: {'graph_info': 'Hey My name is Krish I am planning to play Cricket'}
 ```
 
 ---
 
-## 3. Module 2: Conversational Chatbot & Reducers (`2-chatbot.ipynb`)
+# 2. Conversational Agents & State Reducers
 
-This notebook addresses the challenge of handling conversational memory and streaming responses.
+### Jargon Buster: What is a "Reducer"?
+In computer science, a **Reducer** is a function that takes existing data and incoming new data, and combines them into a single consolidated result.
+- **Without a Reducer (Default):** `New State = Incoming Update` $\rightarrow$ Overwrites history.
+- **With `add_messages` Reducer:** `New State = Existing Messages + Incoming Messages` $\rightarrow$ Preserves full chat history.
 
-### Why Reducers are Required
-In a multi-turn chat, we cannot overwrite the `messages` list with only the latest reply—we need to **append** new messages to maintain the entire chat history.
+---
 
-### The `add_messages` Reducer
-LangGraph provides `add_messages` as an annotated reducer. It handles:
-- Appending new messages to the existing list.
-- Deduplication and updating messages based on unique `id`.
-- Type coercion from dictionaries to Message objects.
+### The `add_messages` Reducer (`2-chatbot.ipynb`)
+
+In multi-turn chat applications, we must preserve conversation history. LangGraph provides the `add_messages` reducer via Python's `Annotated` type hint:
 
 ```python
 from typing import Annotated
 from typing_extensions import TypedDict
-from langchain_core.messages import AnyMessage, HumanMessage
+from langchain_core.messages import AnyMessage, HumanMessage, AIMessage
 from langgraph.graph.message import add_messages
 
 class State(TypedDict):
-    # Annotated[type, reducer_function]
+    # Format: Annotated[Type, ReducerFunction]
     messages: Annotated[list[AnyMessage], add_messages]
 ```
 
-### When and How State Messages Get Updated (Lifecycle)
+#### What `add_messages` handles automatically:
+1. **List Appending:** Appends new message items without deleting past messages.
+2. **Message Deduplication / Update:** If a message shares an existing message `id`, it updates that message in-place (essential for streaming and editing).
+3. **Type Coercion:** Automatically converts raw dictionaries (e.g. `{"role": "user", "content": "hi"}`) into standard LangChain `HumanMessage` / `AIMessage` objects.
 
-In `2-chatbot.ipynb`, the conversation state (`state["messages"]`) is updated at **two precise points** during execution:
+---
 
-1. **Point 1: Graph Entry / Invocation (Input Injection)**
-   - **Trigger:** Calling `graph.invoke({"messages": [input_message]})` or `graph.stream({"messages": [...]})`.
-   - **Mechanism:** LangGraph initializes the graph state by passing the input dictionary through the `add_messages` reducer.
-   - **State snapshot:** `messages = [HumanMessage("...")]` (Length: 1).
+### Under the Hood: The 2-Point State Update Lifecycle
 
-2. **Point 2: Node Execution Return (`superbot` Node)**
-   - **Trigger:** When the `superbot` function returns `{"messages": [AIMessage(...)]}`.
-   - **Mechanism:** LangGraph captures the returned dictionary and applies the reducer `add_messages(existing_messages, new_messages)`. Instead of overwriting the previous `HumanMessage`, it **appends** the new `AIMessage`.
-   - **State snapshot:** `messages = [HumanMessage("..."), AIMessage("...")]` (Length: 2).
-
-#### Visualizing the State Update Sequence
+In a standard chatbot turn, state updates occur at **two exact deterministic points**:
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Caller as User / Caller
+    actor User as User / Caller
     participant LG as LangGraph Runtime
     participant Reducer as add_messages Reducer
     participant Node as SuperBot Node (LLM)
 
-    Caller->>LG: graph.invoke({"messages": [HumanMessage]})
-    LG->>Reducer: 1. Apply input message to initial state
-    Note over Reducer: State updated: [HumanMessage]
-    LG->>Node: Pass current state to superbot(state)
+    User->>LG: graph.invoke({"messages": [HumanMessage("Hello")]})
+    LG->>Reducer: Point 1: Apply input payload to initialize state
+    Note over Reducer: State = [HumanMessage("Hello")]
+    LG->>Node: Pass current state into superbot(state)
     Node->>Node: llm.invoke(state["messages"])
-    Node-->>LG: Return {"messages": [AIMessage]}
-    LG->>Reducer: 2. Apply returned update via add_messages
-    Note over Reducer: State updated: [HumanMessage, AIMessage]
-    LG-->>Caller: Return final output state
+    Node-->>LG: Return update {"messages": [AIMessage("Hi!")]}
+    LG->>Reducer: Point 2: Apply returned update via reducer
+    Note over Reducer: State = [HumanMessage("Hello"), AIMessage("Hi!")]
+    LG-->>User: Return final consolidated state
 ```
 
-### Chatbot Node with LLMs (Groq & OpenAI)
+1. **Point 1 (Graph Entry / Input Injection):**
+   - The user passes `{"messages": [HumanMessage(...)]}` to `graph.invoke()`.
+   - LangGraph runs this payload through `add_messages`, creating the initial state list (length = 1).
+2. **Point 2 (Node Return):**
+   - The `superbot` node calls the LLM and returns `{"messages": [AIMessage(...)]}`.
+   - LangGraph passes this dictionary through `add_messages`, appending the AI message to the existing list (length = 2).
+
+---
+
+### Chatbot Node with LLMs (Groq / OpenAI)
 
 ```python
 import os
 from dotenv import load_dotenv
 from langchain_groq import ChatGroq
+from langgraph.graph import StateGraph, START, END
 
 load_dotenv()
 
-# Initialize LLM (e.g. Groq Llama-3.3-70b or OpenAI gpt-4o-mini)
+# Initialize LLM client
 llm = ChatGroq(model="llama-3.3-70b-versatile")
 
-# Chatbot node passes all messages to LLM and returns the response in a list
+# Node function: passes full conversation history to LLM
 def superbot(state: State) -> dict:
-    return {"messages": [llm.invoke(state["messages"])]}
-```
+    response = llm.invoke(state["messages"])
+    return {"messages": [response]}
 
-```mermaid
-graph TD
-    START([START]) --> SuperBot[SuperBot Node\nllm.invoke]
-    SuperBot --> END([END])
-```
-
-```python
-from langgraph.graph import StateGraph, START, END
-
+# Assemble Graph
 builder = StateGraph(State)
 builder.add_node("SuperBot", superbot)
 builder.add_edge(START, "SuperBot")
 builder.add_edge("SuperBot", END)
 graph = builder.compile()
 
+# Test Run
 output = graph.invoke({"messages": [HumanMessage(content="Hi, My name is Krish and I like cricket")]})
-```
-
-### Streaming Modes: `updates` vs `values`
-
-LangGraph supports different streaming granularities via `graph.stream()`:
-
-1. **`stream_mode="updates"`**: Emits updates generated by each node as they finish executing.
-   ```python
-   for event in graph.stream(
-       {"messages": [HumanMessage(content="Give 3 tips for cricket batting")]},
-       stream_mode="updates"
-   ):
-       print(event)
-       # Output format: {'SuperBot': {'messages': [AIMessage(...)]}}
-   ```
-
-2. **`stream_mode="values"`**: Emits the full, consolidated state snapshot after each step.
-   ```python
-   for state_snapshot in graph.stream(
-       {"messages": [HumanMessage(content="Tell me a quick fact")]},
-       stream_mode="values"
-   ):
-       print(f"Total messages in state: {len(state_snapshot['messages'])}")
-   ```
-
----
-
-## 4. Module 3: State Schemas — `TypedDict` vs `@dataclass` (`3-DataclassStateSchema.ipynb`)
-
-LangGraph supports multiple ways to declare state schemas depending on coding preference and architecture.
-
-### `TypedDict` Schema & Dictionary Access
-- Uses standard dictionaries.
-- Static typing support with mypy/IDEs.
-- Key-based indexing: `state["field"]`.
-
-```python
-from typing import TypedDict, Literal, Optional
-
-class TypedDictState(TypedDict):
-    name: str
-    game: Optional[Literal["cricket", "badminton"]]
-
-def play_game(state: TypedDictState) -> dict:
-    return {"name": state['name'] + " wants to play"}
-```
-
-### `@dataclass` Schema & Dot-Notation Access
-- Object-oriented representation.
-- Attribute access using dot-notation: `state.name`.
-- Built-in default values (`game: Optional[...] = None`).
-
-```python
-from dataclasses import dataclass
-from typing import Literal, Optional
-
-@dataclass
-class DataClassState:
-    name: str
-    game: Optional[Literal["badminton", "cricket"]] = None
-
-def play_game_dc(state: DataClassState) -> dict:
-    # Notice state.name instead of state['name']
-    return {"name": state.name + " wants to play"}
-
-def cricket_dc(state: DataClassState) -> dict:
-    return {"name": state.name + " cricket", "game": "cricket"}
-```
-
-### Input Flexibility: Dataclass Instance vs Raw Dict
-When using `@dataclass`, LangGraph is flexible with inputs:
-```python
-builder_dc = StateGraph(DataClassState)
-# ... add nodes and edges ...
-graph_dc = builder_dc.compile()
-
-# Option A: Passing a dataclass instance
-res_a = graph_dc.invoke(DataClassState(name="Krish"))
-
-# Option B: Passing a standard dict (LangGraph instantiates the dataclass automatically)
-res_b = graph_dc.invoke({"name": "Krish"})
+print(output["messages"])
 ```
 
 ---
 
-## 5. Module 4: Runtime Validation with Pydantic (`4-pydantic.ipynb`)
+### Real-time Streaming: `updates` vs `values`
 
-While `TypedDict` and `@dataclass` offer structural type hints, they do not enforce runtime data validation. Using `pydantic.BaseModel` introduces strict schema enforcement.
+When serving UI applications, use `graph.stream()` to output responses in real-time. LangGraph supports two primary stream modes:
 
-### Why Use Pydantic `BaseModel`?
-1. **Runtime Type Enforcement**: Guarantees that data entering and flowing through the graph strictly matches defined types.
-2. **Field Constraints**: Supports validations such as `ge=0` (greater than or equal to 0), regex patterns, min/max lengths.
-3. **Automatic Type Coercion**: Converts compatible types (e.g. string `"25"` into integer `25`).
-4. **Immediate Failures**: Throws clear `pydantic.ValidationError` when contract is violated.
-
-### Defining Pydantic State
-
-```python
-from pydantic import BaseModel, Field, ValidationError
-from typing import Literal, Optional
-
-class UserState(BaseModel):
-    name: str = Field(description="Name of the user")
-    age: int = Field(default=0, ge=0, description="Age in years (must be non-negative)")
-    category: Optional[Literal["Junior", "Adult", "Senior"]] = None
+```mermaid
+graph TD
+    subgraph Streaming Modes
+        A[graph.stream] -->|stream_mode='updates'| B[Emits only what changed in each specific node]
+        A -->|stream_mode='values'| C[Emits the complete state snapshot after each step]
+    end
 ```
 
-### Nodes Accessing Pydantic State
-
+#### 1. `stream_mode="updates"` (Delta updates from each node)
 ```python
-def classify_age(state: UserState) -> dict:
-    # State fields accessed via dot notation
-    if state.age < 18:
-        category = "Junior"
-    elif state.age < 60:
-        category = "Adult"
-    else:
-        category = "Senior"
-    return {"category": category}
-
-def welcome_node(state: UserState) -> dict:
-    return {"name": f"Welcome {state.name} ({state.category})!"}
+for event in graph.stream(
+    {"messages": [HumanMessage(content="Give 3 tips for cricket batting")]},
+    stream_mode="updates"
+):
+    print(event)
+    # Output: {'SuperBot': {'messages': [AIMessage(content='...')]}}
 ```
+
+#### 2. `stream_mode="values"` (Consolidated state after each step)
+```python
+for state_snapshot in graph.stream(
+    {"messages": [HumanMessage(content="Tell me a quick fact")]},
+    stream_mode="values"
+):
+    print(f"Total messages in state: {len(state_snapshot['messages'])}")
+```
+
+---
+
+# 3. Autonomous Agents & Tool Calling (ReAct Loop)
+
+When an LLM needs real-time data, computational precision, or external actions, we equip it with **Tools** within a **ReAct loop** (**Re**ason $\rightarrow$ **Act** $\rightarrow$ Observe).
+
+---
+
+### The 4 Message Types in LangChain / LangGraph
 
 ```mermaid
 graph LR
-    START([START]) --> classify_age[classify_age]
-    classify_age --> welcome_node[welcome_node]
-    welcome_node --> END([END])
+    HM[HumanMessage: User Input] --> AIM[AIMessage: LLM Response with tool_calls]
+    AIM --> TM[ToolMessage: Tool Output]
+    TM --> FA[AIMessage: Final Synthesized Answer]
 ```
 
-### Validation In Action:
-```python
-builder = StateGraph(UserState)
-builder.add_node("classify_age", classify_age)
-builder.add_node("welcome_node", welcome_node)
-builder.add_edge(START, "classify_age")
-builder.add_edge("classify_age", "welcome_node")
-builder.add_edge("welcome_node", END)
-graph = builder.compile()
-
-# 1. Valid Input
-graph.invoke({"name": "Krish", "age": 30})
-# Output: {'name': 'Welcome Krish (Adult)!', 'age': 30, 'category': 'Adult'}
-
-# 2. Automatic Type Coercion (String "25" -> Int 25)
-graph.invoke({"name": "Shivansh", "age": "25"})
-# Output: {'name': 'Welcome Shivansh (Adult)!', 'age': 25, 'category': 'Adult'}
-
-# 3. Runtime ValidationError (Invalid string for int or negative number)
-try:
-    graph.invoke({"name": "Krish", "age": "invalid_number"})
-except ValidationError as e:
-    print("Caught ValidationError:", e)
-```
+1. **`SystemMessage`:** System instructions setting behavioral rules, roles, and constraints.
+2. **`HumanMessage`:** User query or human feedback.
+3. **`AIMessage`:** Response generated by the model. If the model wants to run a tool, this message contains metadata in its `tool_calls` attribute.
+4. **`ToolMessage`:** Output payload returned from executing a tool function, keyed with `tool_call_id`.
 
 ---
 
-## 6. Module 5: Tool Calling & ReAct Cycles (`5-ChainsLangGraph.ipynb`)
+### Defining Custom Tools with `@tool` (`5-ChainsLangGraph.ipynb`)
 
-This notebook demonstrates integrating external tools with LLMs into an autonomous **Reason + Act (ReAct)** loop.
-
-### Message Types in LangChain / LangGraph
-- `HumanMessage`: User query or input.
-- `AIMessage`: Output from the LLM (may include `tool_calls`).
-- `ToolMessage`: Output payload returned after executing a tool.
-- `SystemMessage`: Instructions setting the behavior or persona.
-
-### Defining Custom Tools with `@tool`
-Tools are defined with clear type hints and docstrings (which become the schema sent to the LLM):
+The `@tool` decorator turns any Python function into a structured tool.
+> [!TIP]
+> The function name, parameter type hints, and **docstring** are automatically converted into JSON Schema and sent to the LLM. Write clear docstrings!
 
 ```python
 from langchain_core.tools import tool
@@ -435,8 +351,11 @@ def multiply(a: int, b: int) -> int:
 tools = [add, multiply]
 ```
 
-### Tool Binding with `llm.bind_tools()`
-Binding tools attaches the tool signatures to the LLM model invocation:
+---
+
+### Binding Tools to LLMs (`llm.bind_tools()`)
+
+`bind_tools` informs the model about available functions:
 
 ```python
 from langchain_groq import ChatGroq
@@ -445,18 +364,25 @@ llm = ChatGroq(model="llama-3.3-70b-versatile")
 llm_with_tools = llm.bind_tools(tools)
 ```
 
-### The ReAct Architecture with `ToolNode` & `tools_condition`
+---
+
+### Prebuilt Helpers: `ToolNode` and `tools_condition`
+
+LangGraph eliminates boilerplate code with two built-in utilities:
+- **`ToolNode(tools)`**: A specialized node that inspects the latest `AIMessage`, extracts all requested `tool_calls`, executes the Python functions, and returns `ToolMessage` instances.
+- **`tools_condition`**: A built-in router. If `AIMessage.tool_calls` is present, it routes to `"tools"`; otherwise, it routes to `END`.
+
+---
+
+### The ReAct Cycle: Full Trace & Execution Walkthrough
 
 ```mermaid
 graph TD
     START([START]) --> llm_tool[llm_tool Node]
-    llm_tool -->|Has tool_calls| tools[ToolNode]
+    llm_tool -->|tools_condition: LLM requested tool| tools[ToolNode]
     tools -->|ToolMessage returned| llm_tool
-    llm_tool -->|No tool_calls / Final Answer| END([END])
+    llm_tool -->|tools_condition: No tool calls / Answer ready| END([END])
 ```
-
-- **`ToolNode(tools)`**: A built-in node that takes the latest `AIMessage`, executes any requested tool calls in parallel or sequence, and appends `ToolMessage` results to state.
-- **`tools_condition`**: A built-in conditional routing function that checks if `state["messages"][-1]` contains `tool_calls`. If yes, routes to `"tools"`; otherwise, routes to `END`.
 
 ```python
 from typing import Annotated
@@ -474,49 +400,52 @@ def llm_tool(state: State) -> dict:
 
 builder = StateGraph(State)
 
+# Add nodes
 builder.add_node("llm_tool", llm_tool)
 builder.add_node("tools", ToolNode(tools))
 
+# Add edges & loop
 builder.add_edge(START, "llm_tool")
 builder.add_conditional_edges("llm_tool", tools_condition)
-builder.add_edge("tools", "llm_tool")  # Loop back to synthesize final response!
+builder.add_edge("tools", "llm_tool")  # Feedback loop: returns tool output back to LLM
 
 graph = builder.compile()
 ```
 
-### Execution Walkthrough
-When asking `"What is 2 plus 2?"`:
-1. `START` $\rightarrow$ `llm_tool`: LLM inspects prompt, generates `AIMessage` with `tool_calls=[{'name': 'add', 'args': {'a': 2, 'b': 2}}]`.
-2. `tools_condition`: Detects tool call $\rightarrow$ routes to `tools`.
-3. `ToolNode`: Runs `add(a=2, b=2)` $\rightarrow$ appends `ToolMessage(content='4')`.
-4. `tools` $\rightarrow$ `llm_tool`: LLM reads history (User Question + Tool Request + Tool Result) and generates final `AIMessage(content="2 plus 2 is 4.")`.
-5. `tools_condition`: No further tool calls $\rightarrow$ routes to `END`.
+#### Step-by-Step Execution Trace for: `"What is 2 plus 2?"`
+1. **START $\rightarrow$ `llm_tool`**:
+   - Input: `[HumanMessage("What is 2 plus 2?")]`.
+   - LLM recognizes it needs `add(a=2, b=2)` and outputs `AIMessage(tool_calls=[{'name': 'add', 'args': {'a': 2, 'b': 2}}])`.
+2. **`tools_condition` Router**:
+   - Detects `tool_calls` $\rightarrow$ routes execution to `"tools"`.
+3. **`ToolNode` Execution**:
+   - Invokes `add(a=2, b=2)` $\rightarrow$ returns `ToolMessage(content='4')`.
+4. **`tools` $\rightarrow$ `llm_tool` (Loop Back)**:
+   - State now contains: `[HumanMessage, AIMessage(tool_call), ToolMessage(4)]`.
+   - LLM reads the tool output and synthesizes: `AIMessage("2 plus 2 is 4.")`.
+5. **`tools_condition` Router**:
+   - No further tool calls detected $\rightarrow$ routes to `END`.
 
 ---
 
-## 7. Module 6: Multi-Tool Assistants & Community Integrations (`6-chatbotswithmultipletools.ipynb`)
+### Multi-Tool Assistants: Arxiv, Wikipedia & Safe Math (`6-chatbotswithmultipletools.ipynb`)
 
-This notebook expands the ReAct agent to work across multiple third-party knowledge providers (Arxiv, Wikipedia) and custom safe calculation engines.
-
-### Integrating Community Tools (Arxiv & Wikipedia)
+We can integrate multiple external APIs and custom logic seamlessly:
 
 ```python
 from langchain_community.tools import ArxivQueryRun, WikipediaQueryRun
 from langchain_community.utilities import WikipediaAPIWrapper, ArxivAPIWrapper
 from langchain_core.tools import tool
 
-# 1. Arxiv API Wrapper & Tool (scientific paper retrieval)
-api_wrapper_arxiv = ArxivAPIWrapper(top_k_results=2, doc_content_chars_max=500)
-arxiv = ArxivQueryRun(api_wrapper=api_wrapper_arxiv)
+# 1. Arxiv Tool (Scientific Papers)
+arxiv_wrapper = ArxivAPIWrapper(top_k_results=2, doc_content_chars_max=500)
+arxiv = ArxivQueryRun(api_wrapper=arxiv_wrapper)
 
-# 2. Wikipedia API Wrapper & Tool (general encyclopedia knowledge)
-api_wrapper_wiki = WikipediaAPIWrapper(top_k_results=1, doc_content_chars_max=500)
-wiki = WikipediaQueryRun(api_wrapper=api_wrapper_wiki)
-```
+# 2. Wikipedia Tool (General Knowledge)
+wiki_wrapper = WikipediaAPIWrapper(top_k_results=1, doc_content_chars_max=500)
+wiki = WikipediaQueryRun(api_wrapper=wiki_wrapper)
 
-### Custom Safe Computation Tools
-
-```python
+# 3. Custom Safe Math Evaluation Tool
 @tool
 def calculate_expression(expression: str) -> str:
     """Safely evaluates a basic mathematical expression string like '2 + 2' or '10 * 5'."""
@@ -529,87 +458,200 @@ def calculate_expression(expression: str) -> str:
 tools = [arxiv, wiki, calculate_expression]
 ```
 
-### Complete Multi-Tool ReAct Graph
+---
 
-```mermaid
-graph TD
-    START([START]) --> tool_calling_llm[tool_calling_llm]
-    tool_calling_llm -->|tools_condition| tools[ToolNode:\nArxiv | Wikipedia | Calculator]
-    tools --> tool_calling_llm
-    tool_calling_llm -->|No tool calls| END([END])
-```
+### Production Shortcut: `create_react_agent`
 
-```python
-from typing import Annotated
-from typing_extensions import TypedDict
-from langchain_core.messages import AnyMessage, HumanMessage
-from langgraph.graph import StateGraph, START, END
-from langgraph.graph.message import add_messages
-from langgraph.prebuilt import ToolNode, tools_condition
-from langchain_groq import ChatGroq
-
-llm = ChatGroq(model="llama-3.3-70b-versatile")
-llm_with_tools = llm.bind_tools(tools)
-
-class State(TypedDict):
-    messages: Annotated[list[AnyMessage], add_messages]
-
-def tool_calling_llm(state: State) -> dict:
-    return {"messages": [llm_with_tools.invoke(state["messages"])]}
-
-builder = StateGraph(State)
-builder.add_node("tool_calling_llm", tool_calling_llm)
-builder.add_node("tools", ToolNode(tools))
-
-builder.add_edge(START, "tool_calling_llm")
-builder.add_conditional_edges("tool_calling_llm", tools_condition)
-builder.add_edge("tools", "tool_calling_llm")
-
-graph = builder.compile()
-```
-
-### Prebuilt Agent Shortcut: `create_react_agent`
-For standard ReAct workflows that do not require custom routing or intermediate state transformations, LangGraph provides a high-level one-liner:
+For standard ReAct workflows, LangGraph provides a high-level factory function that sets up the `StateGraph`, `ToolNode`, message state, and routing in a single line:
 
 ```python
 from langgraph.prebuilt import create_react_agent
 
-prebuilt_agent = create_react_agent(llm, tools)
-response = prebuilt_agent.invoke({"messages": [HumanMessage(content="Summarize paper 1706.03762")]})
+# Compiles a complete ReAct agent graph in one call
+agent = create_react_agent(llm, tools)
+
+# Ready to invoke
+response = agent.invoke({"messages": [HumanMessage(content="Search arxiv for paper 1706.03762")]})
+print(response["messages"][-1].content)
 ```
 
 ---
 
-## 8. Summary & Architectural Comparison Cheat Sheet
+# 4. State Schema Architectures & Data Validation
 
-### State Schema Options Comparison
-
-| Feature | `TypedDict` | `@dataclass` | `Pydantic BaseModel` |
-| :--- | :--- | :--- | :--- |
-| **Data Structure** | Python Dictionary (`dict`) | Python Class Object | Pydantic Model Object |
-| **Field Access** | `state["key"]` | `state.key` | `state.key` |
-| **Static Typing** | ✅ Hints for IDE/mypy | ✅ Type annotations | ✅ Type annotations |
-| **Runtime Validation** | ❌ None | ❌ None | ✅ Strict runtime validation |
-| **Type Coercion** | ❌ None | ❌ None | ✅ Coerces compatible types |
-| **Default Values** | ⚠️ Limited | ✅ Supported | ✅ Supported with `Field()` |
-| **Best Use Case** | Simple graphs, message lists | Clean Python OOP syntax | Production APIs & validated state |
+LangGraph supports three schema options. Choosing the right one depends on your application's complexity and safety requirements.
 
 ---
 
-### Core LangGraph API Quick Reference
+### Schema Option 1: `TypedDict` (`state["key"]`) (`3-DataclassStateSchema.ipynb`)
+- **Structure:** Standard Python dictionary.
+- **Access Pattern:** Indexing with keys: `state["field"]`.
+- **Pros:** Lightweight, fast, default for most examples.
+- **Cons:** No runtime validation; typo in key names causes runtime `KeyError`.
 
-| Class / Function | Module | Description |
+```python
+from typing import TypedDict, Literal, Optional
+
+class TypedDictState(TypedDict):
+    name: str
+    game: Optional[Literal["cricket", "badminton"]]
+
+def play_game(state: TypedDictState) -> dict:
+    return {"name": state['name'] + " wants to play"}
+```
+
+---
+
+### Schema Option 2: `@dataclass` (`state.key`)
+- **Structure:** Clean Python class object.
+- **Access Pattern:** Dot-notation: `state.field`.
+- **Pros:** Readable OOP syntax, built-in default values.
+- **Cons:** No runtime type validation.
+
+```python
+from dataclasses import dataclass
+from typing import Literal, Optional
+
+@dataclass
+class DataClassState:
+    name: str
+    game: Optional[Literal["badminton", "cricket"]] = None
+
+def play_game_dc(state: DataClassState) -> dict:
+    return {"name": state.name + " wants to play"}
+```
+
+#### Input Flexibility: Dataclass Object vs Raw Dictionary
+LangGraph allows you to invoke `@dataclass` graphs using either instance objects or plain dictionaries:
+
+```python
+builder_dc = StateGraph(DataClassState)
+builder_dc.add_node("play_game", play_game_dc)
+builder_dc.add_edge(START, "play_game")
+builder_dc.add_edge("play_game", END)
+graph_dc = builder_dc.compile()
+
+# Both invocations are valid:
+res_obj  = graph_dc.invoke(DataClassState(name="Krish"))
+res_dict = graph_dc.invoke({"name": "Krish"})
+```
+
+---
+
+### Schema Option 3: Production Validation with Pydantic (`4-pydantic.ipynb`)
+
+Neither `TypedDict` nor `@dataclass` validates types at runtime. In production APIs where external users or models supply unexpected inputs, **Pydantic `BaseModel`** guarantees data integrity.
+
+```mermaid
+graph LR
+    RawInput[Input Data] --> PydanticValidation{Pydantic Engine}
+    PydanticValidation -->|Valid & Coerced| CleanState[Validated Graph State]
+    PydanticValidation -->|Constraint Violated| ValErr[Immediate ValidationError]
+```
+
+#### Why use Pydantic for Graph State?
+1. **Runtime Type Enforcement:** Blocks invalid types before node execution.
+2. **Field Constraints:** Supports rules like `ge=0` (greater than or equal to 0), `min_length`, regex patterns.
+3. **Automatic Type Coercion:** Automatically converts compatible types (e.g., `"30"` $\rightarrow$ `30`).
+4. **Descriptive Metadata:** `Field(description="...")` documents the schema.
+
+```python
+from pydantic import BaseModel, Field, ValidationError
+from typing import Literal, Optional
+
+class UserState(BaseModel):
+    name: str = Field(description="Name of the user")
+    age: int = Field(default=0, ge=0, description="Age in years (must be >= 0)")
+    category: Optional[Literal["Junior", "Adult", "Senior"]] = None
+```
+
+---
+
+### Field Constraints, Automatic Coercion & Runtime Errors
+
+```python
+def classify_age(state: UserState) -> dict:
+    # State fields accessed via dot notation
+    if state.age < 18:
+        category = "Junior"
+    elif state.age < 60:
+        category = "Adult"
+    else:
+        category = "Senior"
+    return {"category": category}
+
+def welcome_node(state: UserState) -> dict:
+    return {"name": f"Welcome {state.name} ({state.category})!"}
+
+builder = StateGraph(UserState)
+builder.add_node("classify_age", classify_age)
+builder.add_node("welcome_node", welcome_node)
+builder.add_edge(START, "classify_age")
+builder.add_edge("classify_age", "welcome_node")
+builder.add_edge("welcome_node", END)
+graph = builder.compile()
+```
+
+#### Test Cases:
+
+```python
+# 1. Valid Input
+print(graph.invoke({"name": "Krish", "age": 30}))
+# Output: {'name': 'Welcome Krish (Adult)!', 'age': 30, 'category': 'Adult'}
+
+# 2. Automatic Coercion: String "25" is safely parsed to int 25
+print(graph.invoke({"name": "Shivansh", "age": "25"}))
+# Output: {'name': 'Welcome Shivansh (Adult)!', 'age': 25, 'category': 'Adult'}
+
+# 3. Validation Failure: Negative age violates 'ge=0' or string is not a number
+try:
+    graph.invoke({"name": "Krish", "age": -5})
+except ValidationError as e:
+    print("Caught Pydantic Error:", e)
+```
+
+---
+
+# 5. Comprehensive Quick-Reference Cheat Sheet
+
+### State Schema Architectural Comparison Matrix
+
+| Feature | `TypedDict` | `@dataclass` | `Pydantic BaseModel` |
+| :--- | :--- | :--- | :--- |
+| **Python Foundation** | `typing.TypedDict` | `dataclasses.dataclass` | `pydantic.BaseModel` |
+| **Field Access Style** | `state["key"]` | `state.key` | `state.key` |
+| **Runtime Validation** | ❌ None | ❌ None | ✅ Full runtime enforcement |
+| **Type Coercion** | ❌ None | ❌ None | ✅ Automatic (e.g. `"10"` $\rightarrow$ `10`) |
+| **Default Values** | ⚠️ Limited (`total=False`) | ✅ Supported | ✅ Supported via `Field(default=...)` |
+| **Constraints (`ge`, regex)** | ❌ No | ❌ No | ✅ Full support |
+| **Performance Overhead** | None (pure dict) | Negligible | Low (validation cost) |
+| **Recommended Use Case** | Fast prototyping, simple bots | Clean object-oriented graphs | Production APIs, multi-tenant apps |
+
+---
+
+### LangGraph Core API Quick Reference
+
+| Class / Method | Import Path | Core Responsibility |
 | :--- | :--- | :--- |
-| `StateGraph(Schema)` | `langgraph.graph` | Central graph builder initialized with a state schema. |
-| `START` / `END` | `langgraph.graph` | Virtual entrypoint and exit point nodes. |
-| `builder.add_node(name, func)` | `langgraph.graph` | Registers a node function. |
-| `builder.add_edge(source, target)` | `langgraph.graph` | Adds a deterministic directional edge. |
-| `builder.add_conditional_edges(source, router_func)` | `langgraph.graph` | Adds dynamic branching based on router output. |
-| `builder.compile()` | `langgraph.graph` | Validates topology and compiles to a `CompiledGraph`. |
-| `add_messages` | `langgraph.graph.message` | Reducer function that appends/updates conversation messages. |
-| `ToolNode(tools)` | `langgraph.prebuilt` | Node that executes tool calls from the latest `AIMessage`. |
-| `tools_condition` | `langgraph.prebuilt` | Router that directs to `"tools"` if tool calls exist, else `END`. |
-| `create_react_agent(llm, tools)` | `langgraph.prebuilt` | High-level constructor for a prebuilt ReAct agent. |
-| `graph.invoke(input_dict)` | `langgraph.graph` | Runs the graph synchronously to completion. |
-| `graph.stream(input_dict, stream_mode=...)` | `langgraph.graph` | Streams intermediate outputs (`updates` or `values`). |
-| `graph.get_graph().draw_mermaid_png()` | `langgraph.graph` | Generates a visual Mermaid PNG diagram of the graph. |
+| `StateGraph(Schema)` | `langgraph.graph` | Initializes graph builder using the provided state schema. |
+| `START` / `END` | `langgraph.graph` | Virtual nodes marking graph entry and exit points. |
+| `builder.add_node(name, fn)` | `langgraph.graph` | Registers a worker function node. |
+| `builder.add_edge(from, to)` | `langgraph.graph` | Creates a fixed one-way directional transition. |
+| `builder.add_conditional_edges(from, router)` | `langgraph.graph` | Dynamic routing based on the string returned by `router(state)`. |
+| `builder.compile()` | `langgraph.graph` | Validates topology and outputs a runnable `CompiledGraph`. |
+| `add_messages` | `langgraph.graph.message` | Reducer function to append and deduplicate conversation messages. |
+| `ToolNode(tools)` | `langgraph.prebuilt` | Prebuilt node that executes tool calls extracted from `AIMessage`. |
+| `tools_condition` | `langgraph.prebuilt` | Router that routes to `"tools"` if tool calls exist, else to `END`. |
+| `create_react_agent(llm, tools)` | `langgraph.prebuilt` | One-line factory constructor for complete ReAct agents. |
+| `graph.invoke(payload)` | `langgraph.graph` | Synchronously executes graph to completion and returns state. |
+| `graph.stream(payload, stream_mode=...)` | `langgraph.graph` | Streams intermediate outputs (`"updates"` or `"values"`). |
+
+---
+
+### Common Gotchas & Best Practices Checklist
+
+- [x] **Forgot Reducer on Message Lists:** If you don't use `Annotated[list[AnyMessage], add_messages]`, nodes returning `{"messages": [...]}` will erase all previous chat history.
+- [x] **Router Function Return Types:** Ensure your conditional router function returns a string that **strictly matches** the name of an existing registered node or `END`.
+- [x] **Docstrings on Tools:** LLMs determine when to invoke a tool based on its docstring and argument types. Always write clear descriptions for `@tool` functions.
+- [x] **Loop Back in ReAct:** Always remember to connect `builder.add_edge("tools", "llm_node")` so the model receives the tool output and can synthesize the final answer.
+- [x] **Safe `eval` in Custom Math Tools:** When evaluating arithmetic strings, always disable built-in functions via `allowed_names = {"__builtins__": None}` to prevent security vulnerabilities.
