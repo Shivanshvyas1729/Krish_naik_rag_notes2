@@ -412,3 +412,57 @@ The workflow needs to determine **when a tool should be executed** and how the t
 * **Step 3:** Routes to a tool call execution path before reaching `End`.
 
 </details>
+
+
+
+<details><summary>  name it</summary>
+**Agents & Agentic Architectures**
+
+**Core Concepts**
+
+* **Chains & Routers:** Logic frameworks that steer execution pathways based on input evaluation.
+* **Tools:** External APIs, custom functions, or databases that models trigger to run specific actions or computations.
+* **LangSmith:** An observability platform used for tracing, monitoring, and debugging complex agent workflows.
+
+---
+
+**Agent Structures**
+
+* **Basic Agent:** Direct LLM usage acting as a central processing unit, mapping natural language prompt input directly to output.
+* **Chatbot with Multiple Tools:** Multi-node execution flow that pairs the base LLM with external tools via conditional routing.
+
+---
+
+**ReAct Agent Architecture**
+Iterative decision process using an **Act $\rightarrow$ Observe $\rightarrow$ Reason** execution loop:
+
+1. **Act:** LLM selects and invokes a tool based on the user request.
+2. **Observe:** Tool output is captured and added back into the execution context.
+3. **Reason:** LLM processes updated context to decide on next steps or generate the final response.
+
+*Example:* `add(5, 5)` $\rightarrow$ *Observe:* `10` $\rightarrow$ `multiply(10, 3)` $\rightarrow$ *Observe:* `30` $\rightarrow$ *Reason:* Output `30`.
+
+---
+
+**Implementing a Simple Chatbot with LangGraph**
+
+**State & Reducers**
+
+* **State Management:** Defined using `TypedDict` to enforce schema typing across execution nodes.
+* **Reducers:** The `add_messages` utility appends incoming conversational messages to the state history rather than overwriting existing array elements.
+
+**Graph Components & Compilation**
+
+* **Nodes:** Processing functions (e.g., `superbot`) that accept current `State` and return state updates.
+* **Edges:** Execution paths that define flow; standard execution routes run from `START` $\rightarrow$ `Node` $\rightarrow$ `END`.
+* **Short-Term Memory:** `MemorySaver` retains conversation history across turns using a distinct `thread_id` passed via execution configuration.
+
+**Streaming Execution & Token Generation**
+
+* `.stream()` **vs** `.astream()`: Sync and async methods used to stream graph state during processing.
+* `stream_mode="updates"`: Returns only state changes applied by the specific node.
+* `stream_mode="values"`: Returns the full updated state tree after each node completes.
+
+
+* **Token Streaming (`astream_events`):** Streams individual model token outputs in real time, alongside event metadata containing `event`, `name`, `data`, and `langgraph_node`.
+</details>
