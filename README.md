@@ -251,6 +251,16 @@ For complete code implementations, explore the tutorials and deep-dive notes in 
 
 
 <details><summary> chains using langgraph   </summary>
+
+
+
+
+   <img width="550" height="402" alt="image" src="https://github.com/user-attachments/assets/9b2f53a1-2c26-4507-96d0-cde1b46d2e02" />
+
+   <img width="794" height="292" alt="image" src="https://github.com/user-attachments/assets/c9a0a52a-6fe8-42ad-8f32-d8c9991cb674" />
+
+
+
 # LangGraph – Creating Chains and Tool Integration
 
 ## 1. Understanding Chains
@@ -372,5 +382,30 @@ The workflow needs to determine **when a tool should be executed** and how the t
 ### In one sentence
 
 > **LangGraph allows you to connect nodes, chat models, messages, and tools together to create structured AI workflows that can reason, call external tools, and produce responses.**
+
+</details>
+
+
+
+<details><summary>Router</summary>
+**Router Concept & Workflow**
+
+* **Router Pattern:** The chat model acts as a router, directing the control flow by choosing between returning a natural language response directly or triggering a tool call based on user input.
+* **Basic Agent:** A simple agent architecture where an LLM (acting as the "brain") has tools bound to it to route decisions.
+
+**Workflow vs. Basic Agent Structure**
+
+* **Workflow:** Begins at `__start__`, moves to `llm_tool` (with bound tools like `add()`), and finishes at `__end__`.
+* **Basic Agent Graph:**
+* Uses messages as state alongside a chat model with bound tools.
+* Inputs ($a, b$) route through `tools` to return structured outputs ($\frac{a+b}{\dots}$ / response) before reaching `__end__`.
+
+
+
+**Execution Steps (Basic Agent Flow)**
+
+* **Step 1:** Starts and passes input into the LLM (Brain) with bound tools.
+* **Step 2:** Routes directly to `End` via a natural language response.
+* **Step 3:** Routes to a tool call execution path before reaching `End`.
 
 </details>
