@@ -1,4 +1,4 @@
-# LangGraph Core Architecture & Concepts
+<details><summary>basics</summary># LangGraph Core Architecture & Concepts
 
 A comprehensive guide and reference notes on core LangGraph primitives, StateGraph design patterns, state schemas, and graph compilation.
 
@@ -245,3 +245,4 @@ For complete code implementations, explore the tutorials and deep-dive notes in 
 | **Edges** | Static or conditional routes | Enables loops, retries, and dynamic decision-making. |
 | **Input / Output Schemas** | Contract filters on state | Provides clean API boundaries and protects internal scratchpad data. |
 | **`.compile()`** | Builder $\rightarrow$ Runnable compiler | Validates graph topology and attaches persistence / human-in-the-loop hooks. |
+</details>
