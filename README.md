@@ -12,6 +12,7 @@ A comprehensive, modular study guide and production reference covering LangGraph
 | **[Module 2: Chains, Messages & Tool Integration](#-module-2-chains-messages--tool-integration)** | Sequential Logic & Tools | Chat Messages, Model Binding, Tool Execution Lifecycle |
 | **[Module 3: Router Pattern & Conditional Branching](#-module-3-router-pattern--conditional-branching)** | Dynamic Execution Paths | LLM-as-Router, Workflow vs Agent Graph, Architecture Diagrams |
 | **[Module 4: Agent Architectures, ReAct Loop & Advanced Runtime](#-module-4-agent-architectures-react-loop--advanced-runtime)** | Autonomous Agents & Streaming | ReAct Loop, `add_messages` Reducer, `MemorySaver`, Token Streaming (`astream_events`) |
+| **[Module 5: RAG Architectures (Traditional, Agentic & Adaptive)](#-module-5-rag-architectures-traditional-agentic--adaptive)** | Advanced Retrieval Paradigms | Single-Pass RAG, Self-Corrective Loops, Document & Hallucination Grading, Query Routing |
 
 ---
 
@@ -29,11 +30,11 @@ At its core, **LangGraph** models agentic workflows as **stateful multi-actor gr
 
 ```mermaid
 flowchart LR
-    START([START]) --> N1[Node 1: Input Processing]
-    N1 --> N2[Node 2: Reasoning / Action]
-    N2 --> Decision{Conditional Edge}
-    Decision -->|Need More Info / Retry| N2
-    Decision -->|Complete| N3[Node 3: Final Output]
+    START([START]) --> N1["Node 1: Input Processing"]
+    N1 --> N2["Node 2: Reasoning / Action"]
+    N2 --> Decision{"Conditional Edge"}
+    Decision -->|"Need More Info / Retry"| N2
+    Decision -->|"Complete"| N3["Node 3: Final Output"]
     N3 --> END([END])
 ```
 
@@ -192,10 +193,10 @@ if __name__ == "__main__":
 
 ```mermaid
 flowchart TD
-    START([START]) -->|Input: 'My'| N1["node_1 (InputState &rarr; OverallState)"]
-    N1 -->|foo: 'My name'| N2["node_2 (OverallState &rarr; PrivateState)"]
-    N2 -->|bar: 'My name is'| N3["node_3 (PrivateState &rarr; OutputState)"]
-    N3 -->|Filtered via OutputState| END([END])
+    START([START]) -->|"Input: 'My'"| N1["node_1 (InputState &rarr; OverallState)"]
+    N1 -->|"foo: 'My name'"| N2["node_2 (OverallState &rarr; PrivateState)"]
+    N2 -->|"bar: 'My name is'"| N3["node_3 (PrivateState &rarr; OutputState)"]
+    N3 -->|"Filtered via OutputState"| END([END])
     
     subgraph Output
         Result["{'graph_output': 'My name is Lance'}"]
@@ -329,8 +330,8 @@ The **Router Pattern** uses the LLM as an intelligent decision-maker (the "Brain
 flowchart TD
     START([START]) --> LLM["LLM (Brain with Bound Tools)"]
     LLM --> Decision{"tools_condition Router"}
-    Decision -->|Has tool_calls| Tools["Tool Execution Node"]
-    Decision -->|No tool_calls (Direct Answer)| END([END])
+    Decision -->|"Has tool_calls"| Tools["Tool Execution Node"]
+    Decision -->|"No tool_calls (Direct Answer)"| END([END])
     Tools --> LLM
 ```
 
@@ -365,8 +366,8 @@ $$\mathbf{Act} \longrightarrow \mathbf{Observe} \longrightarrow \mathbf{Reason}$
 flowchart LR
     Act["1. Act<br/>(LLM generates Tool Call)"] --> Observe["2. Observe<br/>(Tool executes & returns result)"]
     Observe --> Reason["3. Reason<br/>(LLM evaluates output)"]
-    Reason -->|More steps needed| Act
-    Reason -->|Goal satisfied| Final[Final Answer]
+    Reason -->|"More steps needed"| Act
+    Reason -->|"Goal satisfied"| Final["Final Answer"]
 ```
 
 ### Multi-Step Calculation Example
@@ -434,6 +435,329 @@ async for event in app.astream_events(inputs, version="v2"):
         if content:
             print(content, end="", flush=True)
 ```
+
+</details>
+
+---
+
+<details>
+<summary><h3>🔍 Module 5: RAG Architectures (Traditional, Agentic & Adaptive)</h3></summary>
+
+# 5. Types of RAG Architectures
+
+A comparative breakdown of retrieval paradigms from simple linear pipelines to autonomous and adaptive multi-strategy systems.
+
+---
+
+## 5.1 Architecture Comparison Matrix
+
+| Dimension | 1. Traditional RAG | 2. Agentic RAG | 3. Adaptive RAG |
+| :--- | :--- | :--- | :--- |
+| **Control Flow** | Fixed Linear Pipeline (DAG) | Dynamic Cyclic Loops | Dynamic Multi-Strategy Routing |
+| **Decision Maker** | None (Deterministic) | Autonomous Agent / LLM | Query Classifier + Self-Reflection Loops |
+| **Retrieval Timing** | Always executes 1-pass retrieval | Decides *if*, *when*, & *where* to retrieve | Routes based on query complexity & domain |
+| **Failure Recovery** | None (risk of hallucinations) | Query Rewriting on irrelevant docs | Multi-stage grading (Docs + Hallucinations) |
+| **Best Used For** | Simple, static Q&A over uniform text | Complex multi-source or multi-tool queries | Enterprise production systems with varied queries |
+
+---
+
+## 5.2 1. Traditional RAG
+
+### Mechanism
+A single, direct linear execution flow:
+
+$$\text{User Query} \longrightarrow \text{Vector Index / DB} \longrightarrow \text{Context Retrieval} \longrightarrow \text{LLM + Prompt} \longrightarrow \text{Answer}$$
+
+```mermaid
+flowchart LR
+    User["User Query"] --> DB[("Vector DB / Index")]
+    DB --> Context["Retrieved Context"]
+    Context --> LLM["LLM + Prompt"]
+    LLM --> Output["Generated Answer"]
+```
+
+### Limitations
+- **Rigid Pipeline:** Follows the same retrieval path regardless of question complexity or relevance.
+- **No Self-Evaluation:** Cannot assess whether the retrieved documents are actually relevant before feeding them to the generator.
+- **Single Point of Failure:** Poor retrieval inevitably produces hallucinated or low-quality answers with no opportunity for query correction.
+
+<details>
+<summary><b>💻 Code: Basic Traditional RAG Graph</b></summary>
+
+```python
+from typing import TypedDict
+from langgraph.graph import StateGraph, START, END
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_community.vectorstores import FAISS
+
+# 1. State Schema
+class TraditionalRAGState(TypedDict):
+    question: str
+    context: list[str]
+    answer: str
+
+# 2. Vector DB & Model Setup
+vectorstore = FAISS.from_texts(
+    ["LangGraph allows building cyclical agent workflows and structured multi-actor graphs."],
+    embedding=OpenAIEmbeddings()
+)
+retriever = vectorstore.as_retriever(search_kwargs={"k": 2})
+llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+
+# 3. Worker Nodes
+def retrieve(state: TraditionalRAGState) -> dict:
+    docs = retriever.invoke(state["question"])
+    return {"context": [d.page_content for d in docs]}
+
+def generate(state: TraditionalRAGState) -> dict:
+    context_str = "\n".join(state["context"])
+    prompt = f"Answer based on context:\n{context_str}\n\nQuestion: {state['question']}"
+    response = llm.invoke(prompt)
+    return {"answer": response.content}
+
+# 4. Assemble Linear Graph
+workflow = StateGraph(TraditionalRAGState)
+workflow.add_node("retrieve", retrieve)
+workflow.add_node("generate", generate)
+
+workflow.add_edge(START, "retrieve")
+workflow.add_edge("retrieve", "generate")
+workflow.add_edge("generate", END)
+
+traditional_rag = workflow.compile()
+```
+
+</details>
+
+---
+
+## 5.3 2. Agentic RAG
+
+### Core Concept
+Integrates an **autonomous retrieval agent** that controls tool invocation, evaluates intermediate results, and dynamically corrects queries via cyclic feedback loops.
+
+```mermaid
+flowchart TD
+    START([START]) --> Agent["Retrieval Agent Node"]
+    Agent -->|"Decides Tool Call"| Tool["Retrieval Tools / Multiple DBs"]
+    Tool --> Grade{"Check Document Relevance"}
+    
+    Grade -->|"Relevant"| Gen["Generate Answer Node"]
+    Grade -->|"Irrelevant / Insufficient"| Rewrite["Query Rewrite Node"]
+    
+    Rewrite --> Agent
+    Gen --> END([Answer / END])
+```
+
+### Key Components
+1. **Retrieval Agent (Brain):** Determines whether retrieval is necessary, selects target data stores (e.g., SQL, Vector DB, Web), and formulates search parameters.
+2. **Document Relevance Grading Node:** Uses structured grading criteria to evaluate retrieved documents against the user's intent.
+3. **Query Rewrite Node:** If retrieved documents fail the relevance threshold, reformulates the search query to improve keyword coverage and semantic alignment.
+4. **Tool Execution Node:** Dynamically triggers function calls to fetch context from heterogeneous indexes.
+
+<details>
+<summary><b>💻 Code: Agentic RAG with Relevance Grading & Query Rewriter</b></summary>
+
+```python
+from typing import TypedDict, Literal
+from langgraph.graph import StateGraph, START, END
+from langchain_core.messages import HumanMessage
+from langchain_openai import ChatOpenAI
+from pydantic import BaseModel, Field
+
+# 1. State Schema with retry tracking
+class AgenticRAGState(TypedDict):
+    question: str
+    documents: list[str]
+    generation: str
+    retry_count: int
+
+# 2. Structured Document Grader
+class GradeDocuments(BaseModel):
+    """Binary score for document relevance check."""
+    binary_score: str = Field(description="Documents are relevant to question, 'yes' or 'no'")
+
+llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+doc_grader = llm.with_structured_output(GradeDocuments)
+
+# 3. Worker & Evaluation Nodes
+def retrieve(state: AgenticRAGState) -> dict:
+    docs = retriever.invoke(state["question"])
+    return {"documents": [d.page_content for d in docs]}
+
+def grade_documents(state: AgenticRAGState) -> dict:
+    """Filter retrieved documents based on relevance."""
+    filtered_docs = []
+    for doc in state["documents"]:
+        score = doc_grader.invoke(
+            f"Question: {state['question']}\nDocument: {doc}"
+        )
+        if score.binary_score.lower() == "yes":
+            filtered_docs.append(doc)
+    return {"documents": filtered_docs}
+
+def decide_to_generate(state: AgenticRAGState) -> Literal["generate", "rewrite"]:
+    """Conditional router: rewrite query if no relevant docs exist."""
+    if not state["documents"] and state.get("retry_count", 0) < 3:
+        return "rewrite"
+    return "generate"
+
+def rewrite_query(state: AgenticRAGState) -> dict:
+    """Transform user question to improve search recall."""
+    msg = [HumanMessage(content=f"Rewrite this search query to optimize vector retrieval: {state['question']}")]
+    better_query = llm.invoke(msg).content
+    return {
+        "question": better_query, 
+        "retry_count": state.get("retry_count", 0) + 1
+    }
+
+def generate(state: AgenticRAGState) -> dict:
+    context = "\n".join(state["documents"]) if state["documents"] else "No specific documents found."
+    res = llm.invoke(f"Context:\n{context}\n\nQuestion: {state['question']}")
+    return {"generation": res.content}
+
+# 4. Assemble Cyclic Agentic Graph
+workflow = StateGraph(AgenticRAGState)
+workflow.add_node("retrieve", retrieve)
+workflow.add_node("grade_documents", grade_documents)
+workflow.add_node("rewrite", rewrite_query)
+workflow.add_node("generate", generate)
+
+workflow.add_edge(START, "retrieve")
+workflow.add_edge("retrieve", "grade_documents")
+workflow.add_conditional_edges(
+    "grade_documents",
+    decide_to_generate,
+    {"generate": "generate", "rewrite": "rewrite"}
+)
+workflow.add_edge("rewrite", "retrieve")
+workflow.add_edge("generate", END)
+
+agentic_rag = workflow.compile()
+```
+
+</details>
+
+---
+
+## 5.4 3. Adaptive RAG
+
+### Core Concept
+Dynamically assesses incoming query complexity and routes requests across distinct execution strategies, optimizing both latency and accuracy.
+
+```mermaid
+flowchart TD
+    User["User Question"] --> QA{"Query Analysis & Classifier"}
+    
+    QA -->|"Simple / Direct"| Direct["Direct Generation / Single-Pass RAG"]
+    QA -->|"Unrelated / Open Web"| Web["Web Search Engine"]
+    QA -->|"Complex / Multi-Hop"| SelfRAG["Self-Corrective RAG Pipeline"]
+    
+    subgraph Self-Corrective RAG Cycle
+        SelfRAG --> Retrieve["Retrieve Documents"]
+        Retrieve --> GradeDoc{"Documents Relevant?"}
+        
+        GradeDoc -->|"No"| Transform["Transform / Rewrite Query"]
+        Transform --> SelfRAG
+        
+        GradeDoc -->|"Yes"| Generate["Generate Candidate Answer"]
+        Generate --> GradeAns{"Grounded & Non-Hallucinatory?"}
+        
+        GradeAns -->|"No (Groundedness Issue)"| Transform
+    end
+    
+    GradeAns -->|"Yes (Verified Answer)"| Final([Final Output])
+    Direct --> Final
+    Web --> Final
+```
+
+### Routing Logic & Strategies
+* **Simple Queries:** Bypasses heavy multi-hop retrieval for single-step answers or direct LLM responses.
+* **Unrelated Queries:** Routes non-domain or real-time queries to live search APIs (e.g., Tavily, Google Search).
+* **Complex Queries:** Directs multi-hop reasoning questions into the **Self-Corrective RAG Pipeline**.
+
+### Self-Corrective Dual-Grading System
+1. **Document Relevance Grading:** Assesses whether retrieved chunks contain sufficient evidence.
+2. **Hallucination & Groundedness Grading:** Evaluates whether the generated response is strictly factually supported by retrieved documents, triggering automated query transformation and retry loops if hallucinations are detected.
+
+<details>
+<summary><b>💻 Code: Adaptive RAG (Router + Self-Corrective RAG)</b></summary>
+
+```python
+from typing import TypedDict, Literal
+from langgraph.graph import StateGraph, START, END
+from langchain_openai import ChatOpenAI
+from pydantic import BaseModel, Field
+
+# 1. State Schema
+class AdaptiveRAGState(TypedDict):
+    question: str
+    documents: list[str]
+    generation: str
+
+# 2. Query Classification Router
+class RouteQuery(BaseModel):
+    """Route user query to the most appropriate data source."""
+    datasource: Literal["vectorstore", "web_search", "direct"] = Field(
+        description="Select 'vectorstore' for domain knowledge, 'web_search' for recent news/web info, 'direct' for general knowledge/chit-chat."
+    )
+
+llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+question_router = llm.with_structured_output(RouteQuery)
+
+# 3. Router & Execution Nodes
+def route_question(state: AdaptiveRAGState) -> Literal["vectorstore", "web_search", "direct"]:
+    """Classifies query and returns target execution branch."""
+    decision = question_router.invoke({"question": state["question"]})
+    return decision.datasource
+
+def web_search(state: AdaptiveRAGState) -> dict:
+    """Mock/Tavily web search execution."""
+    return {"documents": [f"Web search summary for: {state['question']}"]}
+
+def retrieve(state: AdaptiveRAGState) -> dict:
+    """Internal vector index retrieval."""
+    docs = retriever.invoke(state["question"])
+    return {"documents": [d.page_content for d in docs]}
+
+def direct_generate(state: AdaptiveRAGState) -> dict:
+    """Bypasses retrieval for simple/general questions."""
+    res = llm.invoke(state["question"])
+    return {"generation": res.content}
+
+def generate(state: AdaptiveRAGState) -> dict:
+    """Context-grounded answer generation."""
+    context = "\n".join(state["documents"])
+    res = llm.invoke(f"Context:\n{context}\n\nQuestion: {state['question']}")
+    return {"generation": res.content}
+
+# 4. Assemble Adaptive Graph with Dynamic Entry Point
+workflow = StateGraph(AdaptiveRAGState)
+workflow.add_node("retrieve", retrieve)
+workflow.add_node("web_search", web_search)
+workflow.add_node("direct_generate", direct_generate)
+workflow.add_node("generate", generate)
+
+# Dynamic routing directly from START
+workflow.add_conditional_edges(
+    START,
+    route_question,
+    {
+        "vectorstore": "retrieve",
+        "web_search": "web_search",
+        "direct": "direct_generate"
+    }
+)
+
+workflow.add_edge("retrieve", "generate")
+workflow.add_edge("web_search", "generate")
+workflow.add_edge("generate", END)
+workflow.add_edge("direct_generate", END)
+
+adaptive_rag = workflow.compile()
+```
+
+</details>
 
 </details>
 
