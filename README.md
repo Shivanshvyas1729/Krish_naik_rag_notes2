@@ -255,10 +255,6 @@ For complete code implementations, explore the tutorials and deep-dive notes in 
 
 
 
-   <img width="550" height="402" alt="image" src="https://github.com/user-attachments/assets/9b2f53a1-2c26-4507-96d0-cde1b46d2e02" />
-
-   <img width="794" height="292" alt="image" src="https://github.com/user-attachments/assets/c9a0a52a-6fe8-42ad-8f32-d8c9991cb674" />
-
 
 
 # LangGraph – Creating Chains and Tool Integration
@@ -388,6 +384,13 @@ The workflow needs to determine **when a tool should be executed** and how the t
 
 
 <details><summary>Router</summary>
+
+
+   <img width="550" height="402" alt="image" src="https://github.com/user-attachments/assets/9b2f53a1-2c26-4507-96d0-cde1b46d2e02" />
+
+   <img width="794" height="292" alt="image" src="https://github.com/user-attachments/assets/c9a0a52a-6fe8-42ad-8f32-d8c9991cb674" />
+
+
 **Router Concept & Workflow**
 
 * **Router Pattern:** The chat model acts as a router, directing the control flow by choosing between returning a natural language response directly or triggering a tool call based on user input.
