@@ -767,12 +767,20 @@ adaptive_rag = workflow.compile()
 
 | Source File / Directory | Topic Covered |
 | :--- | :--- |
+| **LangGraph Basics** | |
 | [`Langgraph_basics/1-simplegraph.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/Langgraph_basics/1-simplegraph.ipynb) | Basic state graphs, node registration, and conditional routing |
 | [`Langgraph_basics/2-chatbot.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/Langgraph_basics/2-chatbot.ipynb) | Conversational agents, state reducers (`add_messages`), and streaming |
 | [`Langgraph_basics/3-DataclassStateSchema.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/Langgraph_basics/3-DataclassStateSchema.ipynb) | State schemas using Python `@dataclass` |
 | [`Langgraph_basics/4-pydantic.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/Langgraph_basics/4-pydantic.ipynb) | Runtime state validation using Pydantic `BaseModel` |
 | [`Langgraph_basics/5-ChainsLangGraph.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/Langgraph_basics/5-ChainsLangGraph.ipynb) | Translating LangChain chains into modular LangGraph graphs |
 | [`Langgraph_basics/6-chatbotswithmultipletools.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/Langgraph_basics/6-chatbotswithmultipletools.ipynb) | Multi-tool ReAct agents (Arxiv, Wikipedia, Calculator) |
-| [`agent architecture/1-streaming.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/agent%20architecture/1-streaming.ipynb) | Real-time state and token streaming (`astream_events`) |
-| [`agent architecture/7-ReActAgents.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/agent%20architecture/7-ReActAgents.ipynb) | Complete ReAct agent workflows with multi-step tool calling |
+| **Agent Architecture** | |
+| [`agent_architecture/1-react_agent_architecture.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/agent_architecture/1-react_agent_architecture.ipynb) | Core ReAct agent patterns, tool binding, and conditional loop routing |
+| [`agent_architecture/2-streaming_and_token_events.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/agent_architecture/2-streaming_and_token_events.ipynb) | State streaming (`updates` vs `values`) and real-time token streaming (`astream_events`) |
+| **Agentic RAG** | |
+| [`agentic_rag/1-agentic_rag_workflow.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/agentic_rag/1-agentic_rag_workflow.ipynb) | Agentic RAG pipeline with document indexing, relevance grading, and query rewriting |
+| [`agentic_rag/2-react_agentic_rag.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/agentic_rag/2-react_agentic_rag.ipynb) | ReAct Agentic RAG combining vector stores, Wikipedia, and multi-tool routing |
+| [`agentic_rag/3-langgraph_agent_quickstart.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/agentic_rag/3-langgraph_agent_quickstart.ipynb) | Complete 6-part LangGraph guide: memory, human-in-the-loop, custom state, time travel |
+| **Reference Notes** | |
 | [`notes.md`](file:///c:/Users/DELL/Desktop/rag_practice2/notes.md) | Comprehensive technical study guide and deep-dive theory |
+
