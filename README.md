@@ -1,8 +1,9 @@
 <details><summary>basics</summary># LangGraph Core Architecture & Concepts
 
-A comprehensive guide and reference notes on core LangGraph primitives, StateGraph design patterns, state schemas, and graph compilation.
 
----
+
+
+
 
 ## 📑 Table of Contents
 1. [Core Mental Model](#1-core-mental-model)
