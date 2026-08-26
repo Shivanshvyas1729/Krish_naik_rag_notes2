@@ -1,786 +1,601 @@
-# 🦜🕸️ LangGraph & Agent Architectures — Complete Technical Reference
+# 🦜🕸️ LangGraph, Agent Architectures & Autonomous RAG — Master Interview & Technical Reference
 
-A comprehensive, modular study guide and production reference covering LangGraph primitives, state schemas, chains, routing patterns, ReAct agent loops, streaming, memory, and tool integration.
+A comprehensive, production-grade study guide and fast-recall reference for **LangGraph primitives**, **ReAct agent loops**, **state management**, **streaming**, and **advanced RAG paradigms** (Traditional, Agentic, Adaptive, and Autonomous RAG).
 
 ---
 
-## 📑 Quick Navigation & Modules
+## 📑 Master Quick Navigation
 
-| Module | Focus Area | Key Concepts |
+| Module | Core Topic | Key Interview Concepts |
 | :--- | :--- | :--- |
-| **[Module 1: Core Architecture & Fundamentals](#-module-1-langgraph-core-architecture--fundamentals)** | Graph Primitives & Schemas | State, Nodes, Edges, Multi-Schema (`input`/`output`/`overall`), `.compile()` |
-| **[Module 2: Chains, Messages & Tool Integration](#-module-2-chains-messages--tool-integration)** | Sequential Logic & Tools | Chat Messages, Model Binding, Tool Execution Lifecycle |
-| **[Module 3: Router Pattern & Conditional Branching](#-module-3-router-pattern--conditional-branching)** | Dynamic Execution Paths | LLM-as-Router, Workflow vs Agent Graph, Architecture Diagrams |
-| **[Module 4: Agent Architectures, ReAct Loop & Advanced Runtime](#-module-4-agent-architectures-react-loop--advanced-runtime)** | Autonomous Agents & Streaming | ReAct Loop, `add_messages` Reducer, `MemorySaver`, Token Streaming (`astream_events`) |
-| **[Module 5: RAG Architectures (Traditional, Agentic & Adaptive)](#-module-5-rag-architectures-traditional-agentic--adaptive)** | Advanced Retrieval Paradigms | Single-Pass RAG, Self-Corrective Loops, Document & Hallucination Grading, Query Routing |
+| **[Module 1: LangGraph Primitives & State Architecture](#1-langgraph-primitives--state-architecture)** | Core Graph Primitives | State, Nodes, Edges, State Separation (`Input`/`Output`/`Overall`/`Private`), `.compile()` |
+| **[Module 2: State Reducers, Chat History & Memory](#2-state-reducers-chat-history--checkpointer-memory)** | State Persistence | Default Overwrite vs Reducers (`add_messages`), `MemorySaver`, Thread Isolation (`thread_id`) |
+| **[Module 3: Router Pattern & Dynamic Branching](#3-router-pattern--dynamic-branching)** | Conditional Routing | Static Workflows vs Dynamic Agents, `tools_condition`, Path Maps |
+| **[Module 4: ReAct Agent Architecture & Tool Binding](#4-react-agent-architecture--tool-binding)** | Autonomous Reasoning | ReAct Loop ($\text{Act} \rightarrow \text{Observe} \rightarrow \text{Reason}$), `bind_tools`, `ToolNode`, Message Trace |
+| **[Module 5: Streaming Modes & Token Event Handling](#5-streaming-modes--token-event-handling)** | Runtime Observability | `stream_mode="updates"` vs `values`, Asynchronous Token Streaming (`astream_events`) |
+| **[Module 6: Foundational RAG Paradigms](#6-foundational-rag-paradigms-traditional-agentic--adaptive)** | Retrieval Paradigms | Traditional (1-Pass) vs Agentic vs Adaptive RAG, Document Grading, Query Rewriting |
+| **[Module 7: Autonomous RAG, Query Planning & Reflection](#7-autonomous-rag-query-planning--reflection-loops)** | Fully Autonomous Systems | CoT vs Query Planning, Self-Reflection Loops, Multi-Source Synthesis, Full LangGraph Flow |
+| **[Master Interview Q&A Cheatsheet](#8-master-interview-qa-cheatsheet)** | High-Frequency Questions | 10+ core interview questions with bulletproof 3-point responses |
+| **[Repository Notebook Directory Index](#9-repository-notebook-directory-index)** | Source Code Mapping | Map of all 13 `.ipynb` notebook files in this repository |
+
+---
+
+## 1. LangGraph Primitives & State Architecture
+
+### 💡 Core Mental Model & Theory for Interviews
+* **The Shared Clipboard Analogy:** LangGraph models agentic workflows as stateful multi-actor graphs. Specialist workers (**Nodes**) take turns reading from and writing to a central shared clipboard (**State**), navigating along supervisor paths (**Edges**).
+* **Cyclic Graphs vs. Linear DAGs:** Traditional chains (e.g., standard LangChain LCEL) only run forward once. LangGraph natively supports **cycles and loops**, enabling agents to reason, execute tools, observe outputs, self-correct errors, and retry.
+* **The 3 Pillars:**
+  1. **State:** Central Python data structure (`TypedDict`, `@dataclass`, or `BaseModel`) holding global application memory.
+  2. **Nodes:** Python functions (`state -> dict`) executing logic and returning state updates.
+  3. **Edges:** Directives controlling transitions (`add_edge` for fixed, `add_conditional_edges` for dynamic).
+* **Compilation (`.compile()`):** Validates graph topology (detecting orphaned nodes or invalid edges) and transforms the graph builder into an executable `CompiledGraph` supporting `.invoke()`, `.stream()`, and checkpointer persistence.
+
+---
+
+### 📊 State Schema Comparison Matrix
+
+| Feature | `TypedDict` | `@dataclass` | `Pydantic BaseModel` |
+| :--- | :--- | :--- | :--- |
+| **Field Access** | `state["key"]` | `state.key` | `state.key` |
+| **Runtime Validation** | ❌ None | ❌ None | ✅ Strict runtime type checking |
+| **Type Coercion** | ❌ No | ❌ No | ✅ Automatic (`"25"` $\rightarrow$ `25`) |
+| **Field Constraints** | ❌ No | ❌ No | ✅ `Field(ge=0, regex=...)` |
+| **Recommended Use** | Quick prototyping & basic chat | Clean OOP state structures | Production APIs & user inputs |
 
 ---
 
 <details>
-<summary><h3>📦 Module 1: LangGraph Core Architecture & Fundamentals</h3></summary>
+<summary><b>🌐 Real-World Example: E-Commerce Order Processing Pipeline</b></summary>
 
-# 1. LangGraph Core Architecture & Fundamentals
+In an enterprise order fulfillment system, raw user requests (`InputState`) are validated and passed into an internal processing pipeline (`OverallState`). Intermediate calculations like shipping taxes are kept private (`PrivateState`), while only the final invoice status is returned to the user (`OutputState`). This prevents internal API keys or temporary calculations from leaking into external API responses.
+</details>
 
-## 1.1 Core Mental Model
-
-At its core, **LangGraph** models agentic workflows as **stateful multi-actor graphs**. Unlike traditional linear chains (DAGs), LangGraph allows:
-- **Cyclic loops** for reasoning, reflection, and iterative tool calling.
-- **Explicit state tracking** across multiple steps.
-- **Fine-grained control** over execution paths, human-in-the-loop interventions, and persistence.
-
-```mermaid
-flowchart LR
-    START([START]) --> N1["Node 1: Input Processing"]
-    N1 --> N2["Node 2: Reasoning / Action"]
-    N2 --> Decision{"Conditional Edge"}
-    Decision -->|"Need More Info / Retry"| N2
-    Decision -->|"Complete"| N3["Node 3: Final Output"]
-    N3 --> END([END])
-```
-
----
-
-## 1.2 The Three Pillars of LangGraph
-
-Every LangGraph application is composed of three primary primitives:
-
-### 1. State
-* **Definition:** A shared data structure representing the current snapshot of your application at any point during graph execution.
-* **Characteristics:**
-  - Typically defined using Python's `TypedDict`, `dataclass`, or Pydantic `BaseModel`.
-  - Serves as the central communication channel between nodes.
-  - Can be updated via direct overwrite (default) or through custom **reducers** (e.g., `add_messages` for message lists).
-
-### 2. Nodes
-* **Definition:** Python functions or callables that encode the actual business logic or agent computation.
-* **Signature:** Accept the current `state` (and optionally a `config` / `RunnableConfig`) as input, perform computation (LLM calls, tool execution, transformations), and return a dictionary of state updates.
-```python
-def my_node(state: MyState) -> dict:
-    # Perform computation
-    return {"updated_field": "new_value"}
-```
-
-### 3. Edges
-* **Definition:** Directives that control the control flow between nodes.
-* **Types:**
-  - **Fixed (Normal) Edges:** Direct unconditional one-way transitions (`builder.add_edge("node_a", "node_b")`).
-  - **Conditional Edges:** Dynamic branches determined by a router function (`builder.add_conditional_edges("node_a", routing_function)`).
-  - **Entry & Exit Points:** Special edges connecting the virtual boundary nodes `START` and `END` to your graph nodes.
-
----
-
-## 1.3 StateGraph & Schema Architecture
-
-The `StateGraph` class is the primary graph builder. It is parameterized by your user-defined state structure.
-
-### State Separation: Input, Output, Overall & Private States
-
-In production architectures, you often want to restrict what inputs the graph accepts, what internal scratchpad state nodes use, and what final outputs are exposed to callers. LangGraph supports explicit schema separation:
-
-| Schema Type | Purpose | How It Is Defined |
-| :--- | :--- | :--- |
-| **Overall State** | The complete shared state containing all global keys. | `StateGraph(OverallState, ...)` |
-| **Input Schema** | Restricts/validates the keys allowed when calling `.invoke()`. | `input_schema=InputState` |
-| **Output Schema** | Filters the final returned dictionary, hiding internal keys. | `output_schema=OutputState` |
-| **Private Node State** | Scoped type hints for nodes reading/writing specific sub-keys. | Local `TypedDict` annotations on node functions |
-
----
-
-## 1.4 Compiling the Graph (`.compile()`)
-
-Before executing a graph, you must compile it via `builder.compile()`.
-
-### What Compilation Does
-1. **Topology Validation:**
-   - Checks that all referenced nodes exist and have valid incoming/outgoing edges.
-   - Detects orphaned nodes and invalid routing paths.
-   - Ensures `START` and `END` nodes are properly connected.
-2. **Builds a Runnable:**
-   - Transforms the mutable `StateGraph` builder into an immutable, executable `CompiledGraph` implementing the LangChain Runnable interface (`.invoke()`, `.stream()`, `.astream()`, `.batch()`).
-
-### Why Compilation is Required
-Compilation is the bridge between **graph definition** and **graph runtime**. It is the stage where you attach runtime infrastructure:
-- **Persistence & Checkpointing:** Pass a `checkpointer` (e.g., `MemorySaver`, `SqliteSaver`, `PostgresSaver`) for multi-turn memory and state rollbacks.
-- **Human-in-the-Loop:** Set breakpoints (`interrupt_before` or `interrupt_after`) to pause execution for user confirmation or tool review.
-- **Execution Settings:** Configure concurrency limits and node timeouts.
-
----
-
-## 1.5 End-to-End Implementation Example
-
-The following example demonstrates multi-schema state management (Input, Overall, Private, and Output) compiled into an executable pipeline.
+<details>
+<summary><b>💻 Basic Code Implementation: Multi-Schema State Management</b></summary>
 
 ```python
 from typing import TypedDict
-from langgraph.graph import END, START, StateGraph
+from langgraph.graph import StateGraph, START, END
 
-# ==========================================
-# 1. State Schemas Definition
-# ==========================================
-
+# 1. Input Schema (exposed to callers)
 class InputState(TypedDict):
-    """Schema for graph inputs (exposed to external callers)."""
     user_input: str
 
+# 2. Output Schema (filtered response returned to callers)
 class OutputState(TypedDict):
-    """Schema for final graph output (hides internal working fields)."""
     graph_output: str
 
+# 3. Overall Shared State (global memory)
 class OverallState(TypedDict):
-    """Global graph state holding all synchronized fields."""
-    foo: str
     user_input: str
+    processed_text: str
     graph_output: str
 
-class PrivateState(TypedDict):
-    """Intermediate state format used internally between nodes."""
-    bar: str
+# 4. Worker Nodes
+def node_1(state: InputState) -> dict:
+    return {"processed_text": state["user_input"].upper()}
 
+def node_2(state: OverallState) -> dict:
+    return {"graph_output": f"SUCCESS: {state['processed_text']}"}
 
-# ==========================================
-# 2. Node Functions (Workers)
-# ==========================================
-
-def node_1(state: InputState) -> OverallState:
-    """Reads user_input from input state and writes 'foo' to OverallState."""
-    return {"foo": state["user_input"] + " name"}
-
-def node_2(state: OverallState) -> PrivateState:
-    """Reads 'foo' from OverallState and writes intermediate 'bar'."""
-    return {"bar": state["foo"] + " is"}
-
-def node_3(state: PrivateState) -> OutputState:
-    """Reads 'bar' and generates the final 'graph_output'."""
-    return {"graph_output": state["bar"] + " Lance"}
-
-
-# ==========================================
-# 3. Graph Assembly & Compilation
-# ==========================================
-
-builder = StateGraph(
-    OverallState, 
-    input_schema=InputState, 
-    output_schema=OutputState
-)
-
-# Add worker nodes
+# 5. Build Graph with Schema Separation
+builder = StateGraph(OverallState, input_schema=InputState, output_schema=OutputState)
 builder.add_node("node_1", node_1)
 builder.add_node("node_2", node_2)
-builder.add_node("node_3", node_3)
 
-# Define sequential execution flow
 builder.add_edge(START, "node_1")
 builder.add_edge("node_1", "node_2")
-builder.add_edge("node_2", "node_3")
-builder.add_edge("node_3", END)
+builder.add_edge("node_2", END)
 
-# Compile the graph into a runnable instance
 graph = builder.compile()
-
-
-# ==========================================
-# 4. Execution
-# ==========================================
-
-if __name__ == "__main__":
-    result = graph.invoke({"user_input": "My"})
-    print("Final Output:", result)
-    # Output: {'graph_output': 'My name is Lance'}
+# Output contains ONLY 'graph_output', hiding 'processed_text'
+res = graph.invoke({"user_input": "process order #123"})
+print(res)  # {'graph_output': 'SUCCESS: PROCESS ORDER #123'}
 ```
-
-### Execution Flow Diagram
-
-```mermaid
-flowchart TD
-    START([START]) -->|"Input: 'My'"| N1["node_1 (InputState &rarr; OverallState)"]
-    N1 -->|"foo: 'My name'"| N2["node_2 (OverallState &rarr; PrivateState)"]
-    N2 -->|"bar: 'My name is'"| N3["node_3 (PrivateState &rarr; OutputState)"]
-    N3 -->|"Filtered via OutputState"| END([END])
-    
-    subgraph Output
-        Result["{'graph_output': 'My name is Lance'}"]
-    end
-    END --> Result
-```
-
 </details>
 
 ---
 
+## 2. State Reducers, Chat History & Checkpointer Memory
+
+### 💡 Core Mental Model & Theory for Interviews
+* **Default State Overwrite:** By default, returning a dictionary from a node **completely replaces** that key's previous value in state.
+* **Why Reducers are Required:** In conversational chatbots, returning `{"messages": [new_reply]}` without a reducer **erases all previous conversation history**. A reducer instructs LangGraph how to merge new updates into existing state.
+* **`Annotated[list, add_messages]`:** Built-in reducer that **appends** new messages to the list (and updates existing messages if their `id` matches).
+* **Standalone `add_messages()` vs. Graph Reducer:** Calling `add_messages(l1, l2)` in pure Python simply appends lists. Inside `StateGraph`, the schema annotation (`messages: Annotated[list, add_messages]`) signals the LangGraph runtime to apply the append operation automatically upon state updates.
+* **Short-Term Memory (`MemorySaver`):** Passing a checkpointer to `.compile(checkpointer=memory)` saves graph state after every step. Sessions are isolated using `thread_id` inside `config={"configurable": {"thread_id": "1"}}`.
+
+---
+
 <details>
-<summary><h3>🔗 Module 2: Chains, Messages & Tool Integration</h3></summary>
+<summary><b>🌐 Real-World Example: Multi-Turn Customer Support Chatbot</b></summary>
 
-# 2. Chains, Messages & Tool Integration
+A banking support chatbot needs to remember the user's account number mentioned in message 1 when the user asks "What is my balance?" in message 3. By attaching an `add_messages` reducer and configuring `MemorySaver` with `thread_id="user_session_99"`, the agent maintains conversation context seamlessly across separate user interactions.
+</details>
 
-## 2.1 Understanding Chains
-
-* A **chain** is a sequence of connected steps (nodes) that work together to complete a workflow.
-* In LangGraph, nodes are connected to control how information flows through the application state.
-* Chains support both **linear sequences** and **complex branched workflows** that adapt dynamically based on runtime conditions.
-
-```mermaid
-flowchart LR
-    A[Node A: Preprocessing] --> B[Node B: LLM Generation] --> C[Node C: Postprocessing / Output]
-```
-
----
-
-## 2.2 Chat Messages & State History
-
-Chat messages represent the discrete communication steps between the user, the model, and external tools:
-
-| Message Type | Role & Description |
-| :--- | :--- |
-| **`HumanMessage`** | Input sent directly by the user. |
-| **`AIMessage`** | Response generated by the language model (may include natural text or `tool_calls`). |
-| **`ToolMessage`** | Output produced by executing an external tool, returned to the model. |
-| **`SystemMessage`** | High-level instructions guiding model persona, rules, and behavior constraints. |
-
-### Context Preservation
-Explicit message tagging allows LangGraph to maintain conversation history, separate assistant reasoning from external tool observation, and prevent prompt pollution.
-
----
-
-## 2.3 Chat Models in Nodes
-
-A **Chat Model** is an LLM wrapper designed for structured message inputs and outputs.
-
-* Placed inside graph **nodes** as worker functions.
-* Can be parameterized with different model tiers (e.g., fast routing models vs reasoning heavy models).
-* Receives conversation state and emits an `AIMessage`.
-
-```
-User Message ──► Node ──► Chat Model ──► AIMessage Update
-```
-
----
-
-## 2.4 Binding Tools to Models
-
-**Tools** allow language models to interface with external APIs, databases, code execution sandboxes, and search engines.
+<details>
+<summary><b>💻 Basic Code Implementation: Chatbot with Reducer & Memory</b></summary>
 
 ```python
-# Binding tools to a chat model
-llm_with_tools = llm.bind_tools([weather_tool, search_tool, calculator_tool])
+from typing import Annotated, TypedDict
+from langchain_core.messages import AnyMessage, HumanMessage, AIMessage
+from langgraph.graph import StateGraph, START, END
+from langgraph.graph.message import add_messages
+from langgraph.checkpoint.memory import MemorySaver
+
+# 1. State Schema with add_messages Reducer
+class ChatState(TypedDict):
+    messages: Annotated[list[AnyMessage], add_messages]
+
+# 2. Bot Node
+def chatbot_node(state: ChatState) -> dict:
+    # Simulating LLM response based on history
+    last_msg = state["messages"][-1].content
+    reply = f"Echoing: {last_msg}"
+    return {"messages": [AIMessage(content=reply)]}
+
+# 3. Build & Compile with MemorySaver
+builder = StateGraph(ChatState)
+builder.add_node("bot", chatbot_node)
+builder.add_edge(START, "bot")
+builder.add_edge("bot", END)
+
+memory = MemorySaver()
+graph = builder.compile(checkpointer=memory)
+
+# 4. Execution across session threads
+config = {"configurable": {"thread_id": "session-1"}}
+r1 = graph.invoke({"messages": [HumanMessage(content="Hi, I am Krish")]}, config)
+r2 = graph.invoke({"messages": [HumanMessage(content="What is my name?")]}, config)
+
+print(f"Total messages in history: {len(r2['messages'])}")  # 4 messages preserved!
 ```
-
-Binding tools converts Python function signatures and docstrings into standard JSON schemas (OpenAI function calling format) and informs the LLM of its available capabilities.
-
----
-
-## 2.5 Executing Tool Calls Lifecycle
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User
-    participant Graph as LangGraph Agent
-    participant LLM as Chat Model (Brain)
-    participant Tool as ToolNode / API
-
-    User->>Graph: "What is the weather in Delhi?"
-    Graph->>LLM: Pass conversation history
-    LLM-->>Graph: AIMessage(tool_calls=[weather(city="Delhi")])
-    Graph->>Tool: Execute weather tool
-    Tool-->>Graph: ToolMessage(content="28°C, Clear")
-    Graph->>LLM: Pass ToolMessage output
-    LLM-->>Graph: AIMessage("The weather in Delhi is 28°C and clear.")
-    Graph-->>User: Final Response
-```
-
-### Key Takeaways
-1. **Separation of Concerns:** The LLM decides *which* tool to call and with *what arguments*; the graph is responsible for *executing* the tool and feeding back the result.
-2. **Environment Configuration:** API credentials (`OPENAI_API_KEY`, `TAVILY_API_KEY`, `GROQ_API_KEY`) should always be managed securely via `.env`.
-
 </details>
 
 ---
 
-<details>
-<summary><h3>🔀 Module 3: Router Pattern & Conditional Branching</h3></summary>
+## 3. Router Pattern & Dynamic Branching
 
-# 3. Router Pattern & Conditional Branching
-
-## 3.1 Architecture Overview
-
-The **Router Pattern** uses the LLM as an intelligent decision-maker (the "Brain") that analyzes incoming input and decides whether to respond directly with natural language or route execution through an external tool path.
-
-<div align="center">
-  <img width="550" height="402" alt="Router Architecture" src="https://github.com/user-attachments/assets/9b2f53a1-2c26-4507-96d0-cde1b46d2e02" />
-  <br/><br/>
-  <img width="794" height="292" alt="Agent Graph Flow" src="https://github.com/user-attachments/assets/c9a0a52a-6fe8-42ad-8f32-d8c9991cb674" />
-</div>
-
----
-
-## 3.2 Workflow vs. Basic Agent Structure
-
-| Feature | Static Workflow | Basic Agent Graph |
-| :--- | :--- | :--- |
-| **Path Determination** | Pre-programmed, static transitions. | Dynamic, model-driven conditional branching. |
-| **Decision Maker** | Hardcoded conditional Python functions. | LLM analyzing message history and tool schemas. |
-| **Flow Pattern** | `START` $\rightarrow$ `Node A` $\rightarrow$ `Node B` $\rightarrow$ `END` | `START` $\rightarrow$ `LLM` $\rightarrow$ `tools_condition` $\rightarrow$ (`ToolNode` $\leftrightarrow$ `LLM`) / `END` |
-
----
-
-## 3.3 Execution Steps (Basic Agent Flow)
+### 💡 Core Mental Model & Theory for Interviews
+* **Static Workflows vs. Dynamic Agent Graphs:**
+  - *Static Workflows:* Pre-programmed, hardcoded sequential node paths ($A \rightarrow B \rightarrow C$).
+  - *Dynamic Agent Graphs:* The LLM acts as the decision-maker ("Brain"), evaluating user intent and dynamically choosing which tool or branch to execute.
+* **`tools_condition` Built-in Router:** Inspects the latest message in `state["messages"]`. If the `AIMessage` contains `tool_calls`, it routes to the `"tools"` node; otherwise, it routes to `END`.
+* **Path Mapping:** Custom dictionary passed into `builder.add_conditional_edges("src", router_fn, {"path_key": "target_node"})` to map router string outputs to specific custom node names.
 
 ```mermaid
 flowchart TD
-    START([START]) --> LLM["LLM (Brain with Bound Tools)"]
-    LLM --> Decision{"tools_condition Router"}
-    Decision -->|"Has tool_calls"| Tools["Tool Execution Node"]
-    Decision -->|"No tool_calls (Direct Answer)"| END([END])
-    Tools --> LLM
+    START([START]) --> Router["Router Node (LLM / Decision Function)"]
+    Router --> Decision{"Check Input / Intent"}
+    Decision -->|"Requires Tools / DB"| ToolNode["Tool Execution Node"]
+    Decision -->|"Direct FAQ Answer"| FAQNode["FAQ Response Node"]
+    ToolNode --> Router
+    FAQNode --> END([END])
 ```
-
-1. **Step 1 (Input Processing):** Graph execution starts and passes user input into the LLM node configured with bound tools.
-2. **Step 2 (Direct Response Path):** If no tools are required, the model generates text and routes directly to `END`.
-3. **Step 3 (Tool Execution Path):** If external capabilities are required, the model emits tool calls. Execution branches to `ToolNode`, runs the tool, appends `ToolMessage`, and returns to the LLM for final synthesis.
-
-</details>
 
 ---
 
 <details>
-<summary><h3>🤖 Module 4: Agent Architectures, ReAct Loop & Advanced Runtime</h3></summary>
+<summary><b>🌐 Real-World Example: Intelligent Helpdesk Ticket Router</b></summary>
 
-# 4. Agent Architectures, ReAct Loop & Advanced Runtime
+An IT helpdesk system receives incoming tickets. The router LLM classifies the ticket: if it requires database access (e.g., checking password reset eligibility), it routes to a `DatabaseTool` node; if it is a general inquiry, it routes to a `KnowledgeBase` node; if urgent, it escalates directly to a `HumanAgent` node.
+</details>
 
-## 4.1 Core Concepts & Components
+<details>
+<summary><b>💻 Basic Code Implementation: Conditional Router with Path Mapping</b></summary>
 
-* **Chains & Routers:** Logic frameworks that steer execution pathways based on input evaluation.
-* **Tools:** External APIs, custom functions, or databases that models trigger to run specific actions or computations.
-* **LangSmith:** Unified observability platform used for tracing latency, token consumption, and debugging agent execution paths.
+```python
+from typing import TypedDict, Literal
+from langgraph.graph import StateGraph, START, END
+
+class RouterState(TypedDict):
+    query: str
+    category: str
+    response: str
+
+# 1. Router Decision Function
+def route_query(state: RouterState) -> Literal["billing", "technical"]:
+    if "refund" in state["query"].lower() or "pay" in state["query"].lower():
+        return "billing"
+    return "technical"
+
+# 2. Branch Nodes
+def billing_node(state: RouterState) -> dict:
+    return {"response": "Routing to Billing Department..."}
+
+def technical_node(state: RouterState) -> dict:
+    return {"response": "Routing to Technical Support..."}
+
+# 3. Assemble Graph
+builder = StateGraph(RouterState)
+builder.add_node("billing", billing_node)
+builder.add_node("technical", technical_node)
+
+builder.add_conditional_edges(
+    START,
+    route_query,
+    {"billing": "billing", "technical": "technical"}
+)
+builder.add_edge("billing", END)
+builder.add_edge("technical", END)
+
+graph = builder.compile()
+print(graph.invoke({"query": "I need a refund for my last invoice"}))
+```
+</details>
 
 ---
 
-## 4.2 ReAct Agent Architecture (Reason + Act)
+## 4. ReAct Agent Architecture & Tool Binding
 
-The **ReAct** pattern implements an iterative decision cycle:
+### 💡 Core Mental Model & Theory for Interviews
+* **The ReAct Paradigm:** ReAct combines **Reasoning** and **Acting** in an iterative loop:
 
 $$\mathbf{Act} \longrightarrow \mathbf{Observe} \longrightarrow \mathbf{Reason}$$
 
-```mermaid
-flowchart LR
-    Act["1. Act<br/>(LLM generates Tool Call)"] --> Observe["2. Observe<br/>(Tool executes & returns result)"]
-    Observe --> Reason["3. Reason<br/>(LLM evaluates output)"]
-    Reason -->|"More steps needed"| Act
-    Reason -->|"Goal satisfied"| Final["Final Answer"]
-```
-
-### Multi-Step Calculation Example
-* **User Query:** "What is $(5 + 5) \times 3$?"
-* **Step 1 (Act):** Call `add(a=5, b=5)`
-* **Step 2 (Observe):** Output is `10`
-* **Step 3 (Reason & Act):** Call `multiply(a=10, b=3)`
-* **Step 4 (Observe):** Output is `30`
-* **Step 5 (Reason & Finish):** Final Answer: `"30"`
+1. **Act:** LLM evaluates the prompt and generates a structured tool invocation request (`AIMessage(tool_calls=[...])`).
+2. **Observe:** The graph executes the requested tool and appends the result as a `ToolMessage`.
+3. **Reason:** The LLM reads the `ToolMessage` observation and decides whether to call another tool or generate a final text answer.
+* **Tool Binding (`llm.bind_tools`):** Attaches tool function signatures and docstrings as JSON schemas to the model. The model relies on clean function docstrings to determine *when* and *how* to call tools.
+* **Anatomy of a Tool-Calling History:**
+  1. `HumanMessage`: "What is 15 * 8?"
+  2. `AIMessage`: `tool_calls=[{'name': 'multiply', 'args': {'a': 15, 'b': 8}, 'id': 'call_1'}]`
+  3. `ToolMessage`: `content='120', tool_call_id='call_1'`
+  4. `AIMessage`: "15 multiplied by 8 is 120."
 
 ---
 
-## 4.3 State Management & Reducers
+<details>
+<summary><b>🌐 Real-World Example: Automated Financial Analyst Agent</b></summary>
 
-### TypedDict State Schema
+A financial analyst requests a report: "Search for Apple's 2024 revenue, add it to Microsoft's 2024 revenue, and calculate the average." The ReAct agent calls `CompanyRevenueSearch("Apple")`, receives the result, calls `CompanyRevenueSearch("Microsoft")`, receives the result, calls `Calculator(add)` and `Calculator(divide)`, and finally synthesizes a comprehensive financial summary.
+</details>
+
+<details>
+<summary><b>💻 Basic Code Implementation: Complete ReAct Agent Loop</b></summary>
+
 ```python
 from typing import Annotated, TypedDict
-from langchain_core.messages import AnyMessage
-from langgraph.graph.message import add_messages
-
-class AgentState(TypedDict):
-    # 'add_messages' reducer appends new messages rather than overwriting
-    messages: Annotated[list[AnyMessage], add_messages]
-```
-
-### Why Reducers are Required
-By default, LangGraph **overwrites** state keys with whatever a node returns. With conversational agents, we must preserve message history. The `add_messages` reducer:
-- Appends new messages to the existing list.
-- Updates existing messages if they share matching `id` attributes.
-
----
-
-## 4.4 Short-Term Memory & Checkpointers
-
-Using `MemorySaver`, LangGraph retains conversation state across multiple independent user invocations using a `thread_id`:
-
-```python
-from langgraph.checkpoint.memory import MemorySaver
-
-memory = MemorySaver()
-app = builder.compile(checkpointer=memory)
-
-config = {"configurable": {"thread_id": "session-123"}}
-response = app.invoke({"messages": [("user", "My name is Alice")]}, config=config)
-```
-
----
-
-## 4.5 Streaming Modes & Token-Level Streaming
-
-LangGraph provides multiple streaming mechanisms to power interactive UIs:
-
-| Streaming Method | Mode / API | Description |
-| :--- | :--- | :--- |
-| **Node State Updates** | `.stream(..., stream_mode="updates")` | Emits state diffs produced only by the completing node. |
-| **Full Graph State** | `.stream(..., stream_mode="values")` | Emits the complete, unified state tree after each step. |
-| **Token-Level Streaming** | `.astream_events(..., version="v2")` | Emits granular LLM tokens in real time alongside metadata (`event`, `name`, `data`, `langgraph_node`). |
-
-### Token Streaming Pattern (`astream_events`)
-```python
-async for event in app.astream_events(inputs, version="v2"):
-    kind = event["event"]
-    if kind == "on_chat_model_stream":
-        content = event["data"]["chunk"].content
-        if content:
-            print(content, end="", flush=True)
-```
-
-</details>
-
----
-
-<details>
-<summary><h3>🔍 Module 5: RAG Architectures (Traditional, Agentic & Adaptive)</h3></summary>
-
-# 5. Types of RAG Architectures
-
-A comparative breakdown of retrieval paradigms from simple linear pipelines to autonomous and adaptive multi-strategy systems.
-
----
-
-## 5.1 Architecture Comparison Matrix
-
-| Dimension | 1. Traditional RAG | 2. Agentic RAG | 3. Adaptive RAG |
-| :--- | :--- | :--- | :--- |
-| **Control Flow** | Fixed Linear Pipeline (DAG) | Dynamic Cyclic Loops | Dynamic Multi-Strategy Routing |
-| **Decision Maker** | None (Deterministic) | Autonomous Agent / LLM | Query Classifier + Self-Reflection Loops |
-| **Retrieval Timing** | Always executes 1-pass retrieval | Decides *if*, *when*, & *where* to retrieve | Routes based on query complexity & domain |
-| **Failure Recovery** | None (risk of hallucinations) | Query Rewriting on irrelevant docs | Multi-stage grading (Docs + Hallucinations) |
-| **Best Used For** | Simple, static Q&A over uniform text | Complex multi-source or multi-tool queries | Enterprise production systems with varied queries |
-
----
-
-## 5.2 1. Traditional RAG
-
-### Mechanism
-A single, direct linear execution flow:
-
-$$\text{User Query} \longrightarrow \text{Vector Index / DB} \longrightarrow \text{Context Retrieval} \longrightarrow \text{LLM + Prompt} \longrightarrow \text{Answer}$$
-
-```mermaid
-flowchart LR
-    User["User Query"] --> DB[("Vector DB / Index")]
-    DB --> Context["Retrieved Context"]
-    Context --> LLM["LLM + Prompt"]
-    LLM --> Output["Generated Answer"]
-```
-
-### Limitations
-- **Rigid Pipeline:** Follows the same retrieval path regardless of question complexity or relevance.
-- **No Self-Evaluation:** Cannot assess whether the retrieved documents are actually relevant before feeding them to the generator.
-- **Single Point of Failure:** Poor retrieval inevitably produces hallucinated or low-quality answers with no opportunity for query correction.
-
-<details>
-<summary><b>💻 Code: Basic Traditional RAG Graph</b></summary>
-
-```python
-from typing import TypedDict
+from langchain_core.messages import AnyMessage, HumanMessage
+from langchain_core.tools import tool
+from langchain_groq import ChatGroq
 from langgraph.graph import StateGraph, START, END
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from langchain_community.vectorstores import FAISS
+from langgraph.graph.message import add_messages
+from langgraph.prebuilt import ToolNode, tools_condition
 
-# 1. State Schema
-class TraditionalRAGState(TypedDict):
-    question: str
-    context: list[str]
-    answer: str
+# 1. Define Tool
+@tool
+def multiply(a: int, b: int) -> int:
+    """Multiply two integers a and b."""
+    return a * b
 
-# 2. Vector DB & Model Setup
-vectorstore = FAISS.from_texts(
-    ["LangGraph allows building cyclical agent workflows and structured multi-actor graphs."],
-    embedding=OpenAIEmbeddings()
-)
-retriever = vectorstore.as_retriever(search_kwargs={"k": 2})
-llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+tools = [multiply]
 
-# 3. Worker Nodes
-def retrieve(state: TraditionalRAGState) -> dict:
-    docs = retriever.invoke(state["question"])
-    return {"context": [d.page_content for d in docs]}
+# 2. Bind Tools to Model
+llm = ChatGroq(model="qwen-qwq-32b")
+llm_with_tools = llm.bind_tools(tools)
 
-def generate(state: TraditionalRAGState) -> dict:
-    context_str = "\n".join(state["context"])
-    prompt = f"Answer based on context:\n{context_str}\n\nQuestion: {state['question']}"
-    response = llm.invoke(prompt)
-    return {"answer": response.content}
+# 3. State & Node Definitions
+class AgentState(TypedDict):
+    messages: Annotated[list[AnyMessage], add_messages]
 
-# 4. Assemble Linear Graph
-workflow = StateGraph(TraditionalRAGState)
-workflow.add_node("retrieve", retrieve)
-workflow.add_node("generate", generate)
+def agent_node(state: AgentState) -> dict:
+    return {"messages": [llm_with_tools.invoke(state["messages"])]}
 
-workflow.add_edge(START, "retrieve")
-workflow.add_edge("retrieve", "generate")
-workflow.add_edge("generate", END)
+# 4. Graph Construction
+builder = StateGraph(AgentState)
+builder.add_node("agent", agent_node)
+builder.add_node("tools", ToolNode(tools))
 
-traditional_rag = workflow.compile()
+builder.add_edge(START, "agent")
+builder.add_conditional_edges("agent", tools_condition)
+builder.add_edge("tools", "agent")  # Loop back!
+
+graph = builder.compile()
 ```
-
 </details>
 
 ---
 
-## 5.3 2. Agentic RAG
+## 5. Streaming Modes & Token Event Handling
 
-### Core Concept
-Integrates an **autonomous retrieval agent** that controls tool invocation, evaluates intermediate results, and dynamically corrects queries via cyclic feedback loops.
+### 💡 Core Mental Model & Theory for Interviews
+* **Why Streaming Matters:** LLM outputs and multi-step agent reasoning can take several seconds. Streaming gives real-time feedback to users.
+* **Synchronous Graph Streaming Modes:**
+  - `stream_mode="updates"`: Emits *only* the state delta/diff produced by each node as it finishes.
+  - `stream_mode="values"`: Emits the *full consolidated state snapshot* after every node execution.
+* **Asynchronous Token-Level Streaming (`astream_events`):** Streams granular tokens as the LLM generates them *inside* nodes, alongside metadata (`event`, `name`, `data`, `langgraph_node`).
+
+---
+
+### 📊 Streaming Modes Comparison Matrix
+
+| API Method | Stream Mode | What It Emits | Ideal Use Case |
+| :--- | :--- | :--- | :--- |
+| `graph.stream()` | `"updates"` | Node output dictionary deltas (`{'node_a': {'key': 'val'}}`) | Progress bars, step loggers |
+| `graph.stream()` | `"values"` | Full graph state dictionary snapshot | UI state tree sync |
+| `graph.astream_events()` | `version="v2"` | Real-time token chunks (`on_chat_model_stream`) & event metadata | ChatGPT-style typewriter output |
+
+---
+
+<details>
+<summary><b>🌐 Real-World Example: Real-Time Interactive AI Assistant UI</b></summary>
+
+In a web application like ChatGPT, `astream_events` streams LLM text token-by-token directly to the frontend WebSocket so the user sees text immediately. Concurrently, `stream_mode="updates"` notifies the UI whenever a background tool (e.g., `ToolNode("web_search")`) starts or completes execution.
+</details>
+
+<details>
+<summary><b>💻 Basic Code Implementation: State & Token Streaming Snippets</b></summary>
+
+```python
+# 1. Synchronous State Updates Mode
+for chunk in graph.stream({"messages": [HumanMessage(content="Hi")]}, config, stream_mode="updates"):
+    print("Node Update emitted:", chunk)
+
+# 2. Synchronous Full State Values Mode
+for state_snap in graph.stream({"messages": [HumanMessage(content="Hi")]}, config, stream_mode="values"):
+    print("Current total message count:", len(state_snap["messages"]))
+
+# 3. Asynchronous Token Streaming
+async for event in graph.astream_events({"messages": [HumanMessage(content="Hello")]}, config, version="v2"):
+    if event["event"] == "on_chat_model_stream":
+        token = event["data"]["chunk"].content
+        if token:
+            print(token, end="", flush=True)
+```
+</details>
+
+---
+
+## 6. Foundational RAG Paradigms (Traditional, Agentic & Adaptive)
+
+### 💡 Core Mental Model & Theory for Interviews
+* **1. Traditional RAG (Linear DAG):** Single-pass deterministic pipeline ($\text{Query} \rightarrow \text{Retrieve} \rightarrow \text{Generate}$). Fast and simple, but has no self-evaluation or error recovery—poor retrieval inevitably causes hallucinations.
+* **2. Agentic RAG (Cyclic Feedback Loop):** Encapsulates retrievers inside tools or graph nodes. Uses LLMs to **grade document relevance** and **rewrite queries** if retrieved documents fail relevance thresholds.
+* **3. Adaptive RAG (Multi-Strategy Routing):** Analyzes query intent at `START` and routes to different strategies (e.g., direct generation for chit-chat, web search for real-time news, or self-corrective vector RAG for enterprise technical queries).
 
 ```mermaid
 flowchart TD
-    START([START]) --> Agent["Retrieval Agent Node"]
-    Agent -->|"Decides Tool Call"| Tool["Retrieval Tools / Multiple DBs"]
-    Tool --> Grade{"Check Document Relevance"}
+    UserQuery["User Query"] --> Route{"Adaptive Router"}
+    Route -->|"Simple / Chit-Chat"| Direct["Direct LLM Answer"]
+    Route -->|"Real-Time Web"| Web["Web Search Tool"]
+    Route -->|"Enterprise Knowledge"| AgenticRAG["Agentic RAG Loop"]
     
-    Grade -->|"Relevant"| Gen["Generate Answer Node"]
-    Grade -->|"Irrelevant / Insufficient"| Rewrite["Query Rewrite Node"]
+    subgraph Agentic RAG Loop
+        AgenticRAG --> Retrieve["Retrieve Documents"]
+        Retrieve --> Grade{"Grade Document Relevance"}
+        Grade -->|"Relevant"| Generate["Generate Answer"]
+        Grade -->|"Irrelevant"| Rewrite["Rewrite Search Query"]
+        Rewrite --> Retrieve
+    end
     
-    Rewrite --> Agent
-    Gen --> END([Answer / END])
+    Direct --> END([END])
+    Web --> END
+    Generate --> END
 ```
 
-### Key Components
-1. **Retrieval Agent (Brain):** Determines whether retrieval is necessary, selects target data stores (e.g., SQL, Vector DB, Web), and formulates search parameters.
-2. **Document Relevance Grading Node:** Uses structured grading criteria to evaluate retrieved documents against the user's intent.
-3. **Query Rewrite Node:** If retrieved documents fail the relevance threshold, reformulates the search query to improve keyword coverage and semantic alignment.
-4. **Tool Execution Node:** Dynamically triggers function calls to fetch context from heterogeneous indexes.
+---
 
 <details>
-<summary><b>💻 Code: Agentic RAG with Relevance Grading & Query Rewriter</b></summary>
+<summary><b>🌐 Real-World Example: Enterprise Legal & Policy Search</b></summary>
+
+An employee asks: "What is our company's paternity leave policy?" 
+1. **Adaptive Router** identifies this as an internal HR policy query and routes to the Vector DB.
+2. **Retriever** fetches chunks. 
+3. **Document Grader** checks chunks. If the chunks are outdated or generic, it flags them as `irrelevant`.
+4. **Query Transformer** rewrites the query to "parental leave policy benefits duration 2024" and re-retrieves.
+5. **Generator** synthesizes the verified response.
+</details>
+
+<details>
+<summary><b>💻 Basic Code Implementation: Self-Corrective Agentic RAG Graph</b></summary>
 
 ```python
 from typing import TypedDict, Literal
 from langgraph.graph import StateGraph, START, END
-from langchain_core.messages import HumanMessage
-from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
-# 1. State Schema with retry tracking
-class AgenticRAGState(TypedDict):
+# 1. State Schema
+class RAGState(TypedDict):
     question: str
     documents: list[str]
     generation: str
-    retry_count: int
 
-# 2. Structured Document Grader
-class GradeDocuments(BaseModel):
-    """Binary score for document relevance check."""
-    binary_score: str = Field(description="Documents are relevant to question, 'yes' or 'no'")
+# 2. Pydantic Document Grader Schema
+class GradeDocs(BaseModel):
+    binary_score: str = Field(description="'yes' if relevant, 'no' if irrelevant")
 
-llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-doc_grader = llm.with_structured_output(GradeDocuments)
-
-# 3. Worker & Evaluation Nodes
-def retrieve(state: AgenticRAGState) -> dict:
-    docs = retriever.invoke(state["question"])
-    return {"documents": [d.page_content for d in docs]}
-
-def grade_documents(state: AgenticRAGState) -> dict:
-    """Filter retrieved documents based on relevance."""
-    filtered_docs = []
-    for doc in state["documents"]:
-        score = doc_grader.invoke(
-            f"Question: {state['question']}\nDocument: {doc}"
-        )
-        if score.binary_score.lower() == "yes":
-            filtered_docs.append(doc)
-    return {"documents": filtered_docs}
-
-def decide_to_generate(state: AgenticRAGState) -> Literal["generate", "rewrite"]:
-    """Conditional router: rewrite query if no relevant docs exist."""
-    if not state["documents"] and state.get("retry_count", 0) < 3:
+# 3. Router Decision Function
+def decide_to_generate(state: RAGState) -> Literal["generate", "rewrite"]:
+    # If no documents passed grading -> rewrite query
+    if not state["documents"]:
         return "rewrite"
     return "generate"
 
-def rewrite_query(state: AgenticRAGState) -> dict:
-    """Transform user question to improve search recall."""
-    msg = [HumanMessage(content=f"Rewrite this search query to optimize vector retrieval: {state['question']}")]
-    better_query = llm.invoke(msg).content
-    return {
-        "question": better_query, 
-        "retry_count": state.get("retry_count", 0) + 1
-    }
+# 4. Graph Construction
+builder = StateGraph(RAGState)
+builder.add_node("retrieve", retrieve_node)
+builder.add_node("grade", grade_docs_node)
+builder.add_node("rewrite", rewrite_query_node)
+builder.add_node("generate", generate_answer_node)
 
-def generate(state: AgenticRAGState) -> dict:
-    context = "\n".join(state["documents"]) if state["documents"] else "No specific documents found."
-    res = llm.invoke(f"Context:\n{context}\n\nQuestion: {state['question']}")
-    return {"generation": res.content}
+builder.add_edge(START, "retrieve")
+builder.add_edge("retrieve", "grade")
+builder.add_conditional_edges("grade", decide_to_generate, {"generate": "generate", "rewrite": "rewrite"})
+builder.add_edge("rewrite", "retrieve")  # Re-retrieve loop!
+builder.add_edge("generate", END)
 
-# 4. Assemble Cyclic Agentic Graph
-workflow = StateGraph(AgenticRAGState)
-workflow.add_node("retrieve", retrieve)
-workflow.add_node("grade_documents", grade_documents)
-workflow.add_node("rewrite", rewrite_query)
-workflow.add_node("generate", generate)
-
-workflow.add_edge(START, "retrieve")
-workflow.add_edge("retrieve", "grade_documents")
-workflow.add_conditional_edges(
-    "grade_documents",
-    decide_to_generate,
-    {"generate": "generate", "rewrite": "rewrite"}
-)
-workflow.add_edge("rewrite", "retrieve")
-workflow.add_edge("generate", END)
-
-agentic_rag = workflow.compile()
+graph = builder.compile()
 ```
-
 </details>
 
 ---
 
-## 5.4 3. Adaptive RAG
+## 7. Autonomous RAG, Query Planning & Reflection Loops
 
-### Core Concept
-Dynamically assesses incoming query complexity and routes requests across distinct execution strategies, optimizing both latency and accuracy.
+### 💡 Core Mental Model & Theory for Interviews
+* **What is Autonomous RAG?** An advanced RAG paradigm where the agent operates independently with **full self-management**: planning sub-queries, selecting dynamic tools, evaluating document relevance, reflecting on candidate answers, and executing retries without manual intervention.
+* **Chain-of-Thought (CoT) vs. Query Planning & Decomposition:**
+  - *Chain-of-Thought (CoT):* LLM reasons step-by-step through natural language thinking paths ($\text{Think} \rightarrow \text{Retrieve} \rightarrow \text{Think} \rightarrow \text{Answer}$).
+  - *Query Planning & Decomposition:* LLM breaks a complex multi-part question into explicit, structured sub-queries upfront ($\text{Plan sub-queries} \rightarrow \text{Retrieve all} \rightarrow \text{Synthesize once}$).
+* **Self-Reflection & Hallucination Checking:** A dedicated evaluator node inspects the generated answer against the retrieved context to verify that the output is **grounded and non-hallucinatory** before delivering it to the user.
+
+---
+
+### 📊 Feature Matrix: Agentic RAG vs. Autonomous RAG
+
+| Concept | Agentic RAG | Autonomous RAG |
+| :--- | :--- | :--- |
+| 🧩 **Definition** | RAG using an agentic approach (LLM reasons & calls tools). | Fully autonomous system with self-planning, reflection, & retry. |
+| ⚙️ **Execution Cycle** | $\text{Think} \rightarrow \text{Act} \rightarrow \text{Observe} \rightarrow \text{Answer}$ | $\text{Plan} \rightarrow \text{Act} \rightarrow \text{Reflect} \rightarrow \text{Retry} \rightarrow \text{Learn} \rightarrow \text{Answer}$ |
+| 🔄 **Retry & Reflection** | Optional / single-level query rewrite | Core multi-stage loops (Document grading + Answer reflection) |
+| 🧠 **Query Planning** | Optional / single-step retrieval | Multi-step sub-query decomposition (CoT & Planning) |
+
+---
 
 ```mermaid
 flowchart TD
-    User["User Question"] --> QA{"Query Analysis & Classifier"}
+    UserQuery["Complex User Query"] --> Plan["1. Query Planning & Decomposition"]
+    Plan --> CoT["2. Chain of Thought Sub-step Reasoning"]
+    CoT --> ReAct["3. ReAct Tool Execution (VectorDB, ArXiv, Web)"]
+    ReAct --> MultiSource["4. Heterogeneous Answer Synthesis"]
+    MultiSource --> SelfReflect["5. Self-Reflection & Hallucination Check"]
     
-    QA -->|"Simple / Direct"| Direct["Direct Generation / Single-Pass RAG"]
-    QA -->|"Unrelated / Open Web"| Web["Web Search Engine"]
-    QA -->|"Complex / Multi-Hop"| SelfRAG["Self-Corrective RAG Pipeline"]
-    
-    subgraph Self-Corrective RAG Cycle
-        SelfRAG --> Retrieve["Retrieve Documents"]
-        Retrieve --> GradeDoc{"Documents Relevant?"}
-        
-        GradeDoc -->|"No"| Transform["Transform / Rewrite Query"]
-        Transform --> SelfRAG
-        
-        GradeDoc -->|"Yes"| Generate["Generate Candidate Answer"]
-        Generate --> GradeAns{"Grounded & Non-Hallucinatory?"}
-        
-        GradeAns -->|"No (Groundedness Issue)"| Transform
-    end
-    
-    GradeAns -->|"Yes (Verified Answer)"| Final([Final Output])
-    Direct --> Final
-    Web --> Final
+    SelfReflect --> Decision{"Grounded & Accurate?"}
+    Decision -->|"Yes (Pass)"| END([Final Answer / END])
+    Decision -->|"No (Fail)"| Refine["6. Refine Query & Context"]
+    Refine --> ReAct
 ```
 
-### Routing Logic & Strategies
-* **Simple Queries:** Bypasses heavy multi-hop retrieval for single-step answers or direct LLM responses.
-* **Unrelated Queries:** Routes non-domain or real-time queries to live search APIs (e.g., Tavily, Google Search).
-* **Complex Queries:** Directs multi-hop reasoning questions into the **Self-Corrective RAG Pipeline**.
-
-### Self-Corrective Dual-Grading System
-1. **Document Relevance Grading:** Assesses whether retrieved chunks contain sufficient evidence.
-2. **Hallucination & Groundedness Grading:** Evaluates whether the generated response is strictly factually supported by retrieved documents, triggering automated query transformation and retry loops if hallucinations are detected.
+---
 
 <details>
-<summary><b>💻 Code: Adaptive RAG (Router + Self-Corrective RAG)</b></summary>
+<summary><b>🌐 Real-World Example: Deep Tech Research Engine</b></summary>
 
-```python
-from typing import TypedDict, Literal
-from langgraph.graph import StateGraph, START, END
-from langchain_openai import ChatOpenAI
-from pydantic import BaseModel, Field
-
-# 1. State Schema
-class AdaptiveRAGState(TypedDict):
-    question: str
-    documents: list[str]
-    generation: str
-
-# 2. Query Classification Router
-class RouteQuery(BaseModel):
-    """Route user query to the most appropriate data source."""
-    datasource: Literal["vectorstore", "web_search", "direct"] = Field(
-        description="Select 'vectorstore' for domain knowledge, 'web_search' for recent news/web info, 'direct' for general knowledge/chit-chat."
-    )
-
-llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-question_router = llm.with_structured_output(RouteQuery)
-
-# 3. Router & Execution Nodes
-def route_question(state: AdaptiveRAGState) -> Literal["vectorstore", "web_search", "direct"]:
-    """Classifies query and returns target execution branch."""
-    decision = question_router.invoke({"question": state["question"]})
-    return decision.datasource
-
-def web_search(state: AdaptiveRAGState) -> dict:
-    """Mock/Tavily web search execution."""
-    return {"documents": [f"Web search summary for: {state['question']}"]}
-
-def retrieve(state: AdaptiveRAGState) -> dict:
-    """Internal vector index retrieval."""
-    docs = retriever.invoke(state["question"])
-    return {"documents": [d.page_content for d in docs]}
-
-def direct_generate(state: AdaptiveRAGState) -> dict:
-    """Bypasses retrieval for simple/general questions."""
-    res = llm.invoke(state["question"])
-    return {"generation": res.content}
-
-def generate(state: AdaptiveRAGState) -> dict:
-    """Context-grounded answer generation."""
-    context = "\n".join(state["documents"])
-    res = llm.invoke(f"Context:\n{context}\n\nQuestion: {state['question']}")
-    return {"generation": res.content}
-
-# 4. Assemble Adaptive Graph with Dynamic Entry Point
-workflow = StateGraph(AdaptiveRAGState)
-workflow.add_node("retrieve", retrieve)
-workflow.add_node("web_search", web_search)
-workflow.add_node("direct_generate", direct_generate)
-workflow.add_node("generate", generate)
-
-# Dynamic routing directly from START
-workflow.add_conditional_edges(
-    START,
-    route_question,
-    {
-        "vectorstore": "retrieve",
-        "web_search": "web_search",
-        "direct": "direct_generate"
-    }
-)
-
-workflow.add_edge("retrieve", "generate")
-workflow.add_edge("web_search", "generate")
-workflow.add_edge("generate", END)
-workflow.add_edge("direct_generate", END)
-
-adaptive_rag = workflow.compile()
-```
-
+A research scientist asks: "Compare the performance of Transformer variants in computer vision versus LLMs, and summarize recent ArXiv papers."
+1. **Planner Agent** decomposes the query into sub-questions: 
+   - SQ1: "Vision Transformer (ViT) benchmark performance"
+   - SQ2: "LLM transformer architecture variants"
+   - SQ3: "Recent 2024 ArXiv papers on ViT vs LLM"
+2. **Tool Selector** retrieves from Vector DB for SQ1/SQ2 and triggers ArXiv API for SQ3.
+3. **Synthesizer** drafts a detailed comparison matrix.
+4. **Reflector** checks if the draft contains unsupported claims. If it finds an unverified statement, it triggers a retry to fetch additional context before finalizing.
 </details>
 
+<details>
+<summary><b>💻 Basic Code Implementation: Autonomous RAG with CoT & Reflection</b></summary>
+
+```python
+from pydantic import BaseModel
+from typing import List
+from langchain.schema import Document
+from langgraph.graph import StateGraph, END
+
+# 1. State Schema
+class AutonomousRAGState(BaseModel):
+    question: str
+    sub_steps: List[str] = []
+    retrieved_docs: List[Document] = []
+    draft_answer: str = ""
+    is_grounded: bool = False
+
+# 2. Planning Node (Decomposition)
+def plan_steps_node(state: AutonomousRAGState) -> AutonomousRAGState:
+    prompt = f"Break question into 2-3 sub-queries:\n{state.question}"
+    res = llm.invoke(prompt).content
+    subqs = [line.strip("- ") for line in res.split("\n") if line.strip()]
+    return state.model_copy(update={"sub_steps": subqs})
+
+# 3. Multi-Step Retrieval Node
+def retrieve_per_step_node(state: AutonomousRAGState) -> AutonomousRAGState:
+    docs = []
+    for sq in state.sub_steps:
+        docs.extend(retriever.invoke(sq))
+    return state.model_copy(update={"retrieved_docs": docs})
+
+# 4. Self-Reflection Node
+def reflect_node(state: AutonomousRAGState) -> AutonomousRAGState:
+    context = "\n".join([d.page_content for d in state.retrieved_docs])
+    prompt = f"Is this draft grounded in context?\nDraft: {state.draft_answer}\nContext: {context}"
+    score = reflector_llm.invoke(prompt)
+    grounded = "yes" in score.content.lower()
+    return state.model_copy(update={"is_grounded": grounded})
+
+# 5. Assemble Autonomous Pipeline
+builder = StateGraph(AutonomousRAGState)
+builder.add_node("planner", plan_steps_node)
+builder.add_node("retriever", retrieve_per_step_node)
+builder.add_node("synthesizer", synthesize_node)
+builder.add_node("reflector", reflect_node)
+
+builder.set_entry_point("planner")
+builder.add_edge("planner", "retriever")
+builder.add_edge("retriever", "synthesizer")
+builder.add_edge("synthesizer", "reflector")
+builder.add_conditional_edges("reflector", lambda s: END if s.is_grounded else "retriever")
+
+graph = builder.compile()
+```
 </details>
 
 ---
 
-## 📚 Repository Learning Path
+## 8. Master Interview Q&A Cheatsheet
 
-| Source File / Directory | Topic Covered |
-| :--- | :--- |
-| **LangGraph Basics** | |
-| [`Langgraph_basics/1-simplegraph.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/Langgraph_basics/1-simplegraph.ipynb) | Basic state graphs, node registration, and conditional routing |
-| [`Langgraph_basics/2-chatbot.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/Langgraph_basics/2-chatbot.ipynb) | Conversational agents, state reducers (`add_messages`), and streaming |
-| [`Langgraph_basics/3-DataclassStateSchema.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/Langgraph_basics/3-DataclassStateSchema.ipynb) | State schemas using Python `@dataclass` |
-| [`Langgraph_basics/4-pydantic.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/Langgraph_basics/4-pydantic.ipynb) | Runtime state validation using Pydantic `BaseModel` |
-| [`Langgraph_basics/5-ChainsLangGraph.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/Langgraph_basics/5-ChainsLangGraph.ipynb) | Translating LangChain chains into modular LangGraph graphs |
-| [`Langgraph_basics/6-chatbotswithmultipletools.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/Langgraph_basics/6-chatbotswithmultipletools.ipynb) | Multi-tool ReAct agents (Arxiv, Wikipedia, Calculator) |
-| **Agent Architecture** | |
-| [`agent_architecture/1-react_agent_architecture.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/agent_architecture/1-react_agent_architecture.ipynb) | Core ReAct agent patterns, tool binding, and conditional loop routing |
-| [`agent_architecture/2-streaming_and_token_events.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/agent_architecture/2-streaming_and_token_events.ipynb) | State streaming (`updates` vs `values`) and real-time token streaming (`astream_events`) |
-| **Agentic RAG** | |
-| [`agentic_rag/1-agentic_rag_workflow.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/agentic_rag/1-agentic_rag_workflow.ipynb) | Agentic RAG pipeline with document indexing, relevance grading, and query rewriting |
-| [`agentic_rag/2-react_agentic_rag.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/agentic_rag/2-react_agentic_rag.ipynb) | ReAct Agentic RAG combining vector stores, Wikipedia, and multi-tool routing |
-| [`agentic_rag/3-langgraph_agent_quickstart.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/agentic_rag/3-langgraph_agent_quickstart.ipynb) | Complete 6-part LangGraph guide: memory, human-in-the-loop, custom state, time travel |
-| **Reference Notes** | |
-| [`notes.md`](file:///c:/Users/DELL/Desktop/rag_practice2/notes.md) | Comprehensive technical study guide and deep-dive theory |
+### Q1: What is LangGraph, and how does it differ from traditional LangChain LCEL chains?
+> **Answer:** LangGraph is a framework for building stateful, multi-actor agent applications using graphs. Traditional LCEL chains are linear Directed Acyclic Graphs (DAGs) that run forward once. LangGraph supports **cycles, loops, explicit state tracking, fine-grained routing, and built-in persistence (checkpointing)**, making it essential for autonomous agents that must iterate, call tools, and self-correct.
 
+### Q2: Why do we need reducers like `add_messages` in LangGraph state schemas?
+> **Answer:** By default, LangGraph **overwrites** state keys with the return value of whichever node executed. In chat applications, returning `{"messages": [new_reply]}` would overwrite and erase the entire previous conversation history. Reducers like `Annotated[list, add_messages]` instruct LangGraph to **append** new messages to the existing list while updating existing messages if their IDs match.
+
+### Q3: How does short-term memory and session isolation work in LangGraph?
+> **Answer:** LangGraph implements memory by attaching a checkpointer (e.g., `MemorySaver` or `PostgresSaver`) during graph compilation (`builder.compile(checkpointer=memory)`). State snapshots are saved after every node execution. Sessions are isolated at runtime by passing a thread configuration dictionary (`config={"configurable": {"thread_id": "session_123"}}`) into `.invoke()` or `.stream()`.
+
+### Q4: Explain the ReAct architecture pattern and its message execution lifecycle.
+> **Answer:** ReAct stands for **Reasoning + Acting** ($\text{Act} \rightarrow \text{Observe} \rightarrow \text{Reason}$). 
+> 1. The user sends a `HumanMessage`. 
+> 2. The LLM evaluates the message and emits an `AIMessage` with `tool_calls`. 
+> 3. The graph routes to `ToolNode`, executes the function, and returns a `ToolMessage`. 
+> 4. The LLM inspects the `ToolMessage` observation and either invokes another tool or generates the final answer `AIMessage`.
+
+### Q5: What is the difference between `stream_mode="updates"` and `stream_mode="values"`?
+> **Answer:** `stream_mode="updates"` emits **only the dictionary delta/diff** returned by the specific node that just finished executing. `stream_mode="values"` emits the **complete, consolidated state snapshot** dictionary after every step. For streaming individual LLM tokens in real-time, `astream_events(version="v2")` is used.
+
+### Q6: How does Agentic RAG improve upon Traditional Single-Pass RAG?
+> **Answer:** Traditional RAG is a linear pipeline ($\text{Query} \rightarrow \text{Retrieve} \rightarrow \text{Generate}$) with no self-evaluation; poor retrieval inevitably leads to hallucinations. Agentic RAG introduces **cyclic loops, document grading, and query rewriting**. If retrieved documents fail a relevance check, the agent rewrites the query and re-retrieves before generating an answer.
+
+### Q7: What is Adaptive RAG?
+> **Answer:** Adaptive RAG is a multi-strategy RAG paradigm that uses an LLM query classifier at the graph entry point (`START`). It analyzes incoming query complexity and routes requests to the optimal strategy: direct LLM generation for chit-chat, web search APIs for real-time news, or self-corrective vector store retrieval for complex enterprise queries.
+
+### Q8: What is the difference between Chain-of-Thought (CoT) and Query Planning & Decomposition?
+> **Answer:** Chain-of-Thought (CoT) lets the LLM reason step-by-step through natural language scratchpad thinking ($\text{Think} \rightarrow \text{Retrieve} \rightarrow \text{Think} \rightarrow \text{Answer}$). Query Planning & Decomposition explicitly breaks a complex query into structured sub-queries upfront ($\text{Plan sub-queries} \rightarrow \text{Retrieve for all} \rightarrow \text{Synthesize once}$).
+
+### Q9: What is Autonomous RAG, and what are its core components?
+> **Answer:** Autonomous RAG is an end-to-end self-managing retrieval system capable of planning, dynamic tool selection, iterative retrieval, answer synthesis, and self-reflection. Its core components are: **Planner Agent**, **Tool Selector**, **Retriever**, **Synthesizer**, **Reflector**, and **Retry Loop**.
+
+### Q10: How do you prevent hallucinations in Autonomous RAG systems?
+> **Answer:** By implementing a **Self-Reflection Node** after answer synthesis. The reflector node uses an LLM evaluator to score the candidate answer against the retrieved document context for groundedness. If the answer contains unverified claims, the conditional edge triggers a query refinement and re-retrieval loop before returning the output to the user.
+
+---
+
+## 9. Repository Notebook Directory Index
+
+This repository contains 13 hands-on Jupyter notebooks organized across 4 topic directories:
+
+| Directory | Notebook File | Key Practical Concepts Covered |
+| :--- | :--- | :--- |
+| **`Langgraph_basics/`** | [`1-simplegraph.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/Langgraph_basics/1-simplegraph.ipynb) | Basic state graphs, node registration, and conditional routing |
+| | [`2-chatbot.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/Langgraph_basics/2-chatbot.ipynb) | Chatbot state reducers (`add_messages`) and streaming |
+| | [`3-DataclassStateSchema.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/Langgraph_basics/3-DataclassStateSchema.ipynb) | State schemas using Python `@dataclass` |
+| | [`4-pydantic.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/Langgraph_basics/4-pydantic.ipynb) | Runtime state validation using Pydantic `BaseModel` |
+| | [`5-ChainsLangGraph.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/Langgraph_basics/5-ChainsLangGraph.ipynb) | Translating LCEL chains into modular LangGraph graphs |
+| | [`6-chatbotswithmultipletools.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/Langgraph_basics/6-chatbotswithmultipletools.ipynb) | Multi-tool ReAct agents (Arxiv, Wikipedia, Calculator) |
+| **`agent_architecture/`** | [`1-react_agent_architecture.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/agent_architecture/1-react_agent_architecture.ipynb) | ReAct agent loops, tool binding (`bind_tools`), `MemorySaver` |
+| | [`2-streaming_and_token_events.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/agent_architecture/2-streaming_and_token_events.ipynb) | State streaming (`updates` vs `values`) and `astream_events` token streaming |
+| **`agentic_rag/`** | [`1-agentic_rag_workflow.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/agentic_rag/1-agentic_rag_workflow.ipynb) | Agentic RAG pipeline with Pydantic state and retriever nodes |
+| | [`2-react_agentic_rag.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/agentic_rag/2-react_agentic_rag.ipynb) | ReAct Agentic RAG with multi-retriever tools & tool factory pattern |
+| | [`3-langgraph_agent_quickstart.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/agentic_rag/3-langgraph_agent_quickstart.ipynb) | Complete self-correcting RAG (grader chain + query rewrite loop) |
+| | [`project.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/agentic_rag/project.ipynb) | End-to-end agentic RAG project implementation |
+- **Explicit state tracking** across multiple steps.
+- **Fine-grained control** over execution paths, human-in-the-loop interventions, and persistence.
