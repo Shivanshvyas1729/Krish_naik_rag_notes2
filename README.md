@@ -440,6 +440,8 @@ graph = builder.compile()
   - *Chain-of-Thought (CoT):* LLM reasons step-by-step through natural language thinking paths ($\text{Think} \rightarrow \text{Retrieve} \rightarrow \text{Think} \rightarrow \text{Answer}$).
   - *Query Planning & Decomposition:* LLM breaks a complex multi-part question into explicit, structured sub-queries upfront ($\text{Plan sub-queries} \rightarrow \text{Retrieve all} \rightarrow \text{Synthesize once}$).
 * **Self-Reflection & Hallucination Checking:** A dedicated evaluator node inspects the generated answer against the retrieved context to verify that the output is **grounded and non-hallucinatory** before delivering it to the user.
+<img width="1408" height="768" alt="Gemini_Generated_Image_rdc4kirdc4kirdc4" src="https://github.com/user-attachments/assets/31d0a73f-668e-49f1-819d-ab390cb07ec2" />
+
 
 ---
 
