@@ -27,6 +27,10 @@
 12. [Module 12: ReAct Agentic RAG & Multi-Tool Retrieval (`agentic_rag/2-react_agentic_rag.ipynb`)](#12-module-12-react-agentic-rag--multi-tool-retrieval-agentic_rag2-react_agentic_ragipynb)
 13. [Module 13: Advanced Self-Correcting Agentic RAG (`agentic_rag/3-langgraph_agent_quickstart.ipynb`)](#13-module-13-advanced-self-correcting-agentic-rag-agentic_rag3-langgraph_agent_quickstartipynb)
 14. [Module 14: Chain-of-Thought (CoT) Multi-Step RAG (`autonomus rag/3-COTRag.ipynb`)](#14-module-14-chain-of-thought-cot-multi-step-rag-autonomus-rag3-cotragipynb)
+15. [Module 15: Self-Reflection in RAG (`04 - autonomus rag/4-Selfreflection.ipynb`)](#15-module-15-self-reflection-in-rag-04---autonomus-rag4-selfreflectionipynb)
+16. [Module 16: Query Planning & Decomposition (`04 - autonomus rag/5-QueryPlanningdecomposition.ipynb`)](#16-module-16-query-planning--decomposition-04---autonomus-rag5-queryplanningdecompositionipynb)
+17. [Module 17: Iterative Retrieval & Self-Correction Loops (`04 - autonomus rag/6-Iterativeretrieval.ipynb`)](#17-module-17-iterative-retrieval--self-correction-loops-04---autonomus-rag6-iterativeretrievalipynb)
+18. [Module 18: Multi-Source Answer Synthesis (`04 - autonomus rag/7-answersynthesis.ipynb`)](#18-module-18-multi-source-answer-synthesis-04---autonomus-rag7-answersynthesisipynb)
 
 ---
 
@@ -819,4 +823,371 @@ graph = builder.compile()
 final = graph.invoke(RAGCoTState(question="What are the additional experiments in Transformer evaluation?"))
 print("Reasoning Steps:", final["sub_steps"])
 print("\nFinal Answer:\n", final["answer"])
+```
+
+---
+
+## 15. Module 15: Self-Reflection in RAG (`04 - autonomus rag/4-Selfreflection.ipynb`)
+
+### Concept & Mental Model
+**Self-Reflection** introduces a metacognitive evaluation step into the RAG lifecycle. Instead of blindly returning the first generated answer, the agent runs a dedicated critic step: *"Is this answer complete, factual, and directly answering the user query?"*
+
+```mermaid
+graph LR
+    START([START]) --> retriever[retrieve_docs Node]
+    retriever --> responder[generate_answer Node]
+    responder --> reflector[reflect_on_answer Node]
+    reflector -->|attempts < 2 & revised| retriever
+    reflector -->|verified or max attempts| done[finalize Node]
+    done --> END([END])
+```
+
+- **Pass Condition:** If the reflection verifies the answer (`reflection: yes`), it routes to `finalize` and ends.
+- **Fail Condition:** If unverified and under the retry limit (`attempts < 2`), it routes back to `retriever` for another pass.
+
+### Complete Code Implementation
+```python
+from pydantic import BaseModel
+from typing import List
+from langchain_core.documents import Document
+from langchain_openai import OpenAIEmbeddings
+from langchain.chat_models import init_chat_model
+from langchain_community.document_loaders import TextLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import FAISS
+from langgraph.graph import StateGraph, START, END
+
+# 1. Prepare Vectorstore & LLM
+docs = TextLoader("internal_docs.txt", encoding="utf-8").load()
+chunks = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50).split_documents(docs)
+vectorstore = FAISS.from_documents(chunks, OpenAIEmbeddings())
+retriever = vectorstore.as_retriever()
+llm = init_chat_model("openai:gpt-4o")
+
+# 2. State Definition
+class RAGReflectionState(BaseModel):
+    question: str
+    retrieved_docs: List[Document] = []
+    answer: str = ""
+    reflection: str = ""
+    revised: bool = False
+    attempts: int = 0
+
+# 3. Graph Nodes
+def retrieve_docs(state: RAGReflectionState) -> RAGReflectionState:
+    docs = retriever.invoke(state.question)
+    return state.model_copy(update={"retrieved_docs": docs})
+
+def generate_answer(state: RAGReflectionState) -> RAGReflectionState:
+    context = "\n\n".join([doc.page_content for doc in state.retrieved_docs])
+    prompt = f"""Use the following context to answer the question:
+
+Context:
+{context}
+
+Question:
+{state.question}
+"""
+    answer = llm.invoke(prompt).content.strip()
+    return state.model_copy(update={"answer": answer, "attempts": state.attempts + 1})
+
+def reflect_on_answer(state: RAGReflectionState) -> RAGReflectionState:
+    prompt = f"""Reflect on the following answer to see if it fully addresses the question.
+State YES if it is complete and correct, or NO with an explanation.
+
+Question: {state.question}
+Answer: {state.answer}
+
+Respond like:
+Reflection: YES or NO
+Explanation: ...
+"""
+    result = llm.invoke(prompt).content
+    is_ok = "reflection: yes" in result.lower()
+    return state.model_copy(update={"reflection": result, "revised": not is_ok})
+
+def finalize(state: RAGReflectionState) -> RAGReflectionState:
+    return state
+
+# 4. Assembly with Cyclic Self-Correction
+builder = StateGraph(RAGReflectionState)
+builder.add_node("retriever", retrieve_docs)
+builder.add_node("responder", generate_answer)
+builder.add_node("reflector", reflect_on_answer)
+builder.add_node("done", finalize)
+
+builder.add_edge(START, "retriever")
+builder.add_edge("retriever", "responder")
+builder.add_edge("responder", "reflector")
+builder.add_conditional_edges(
+    "reflector",
+    lambda s: "done" if not s.revised or s.attempts >= 2 else "retriever"
+)
+builder.add_edge("done", END)
+
+graph = builder.compile()
+```
+
+---
+
+## 16. Module 16: Query Planning & Decomposition (`04 - autonomus rag/5-QueryPlanningdecomposition.ipynb`)
+
+### Concept & Mental Model
+Broad, complex questions (e.g. *"Compare transformer attention mechanisms and video diffusion models"*) perform poorly in single-pass semantic search. **Query Planning & Decomposition** breaks down a complex query into simpler, focused sub-questions upfront, retrieves targeted context per sub-question, and synthesizes a consolidated answer.
+
+```mermaid
+graph LR
+    START([START]) --> planner[plan_query Node]
+    planner --> retriever[retrieve_for_each Node]
+    retriever --> responder[generate_final_answer Node]
+    responder --> END([END])
+```
+
+### Complete Code Implementation
+```python
+from pydantic import BaseModel
+from typing import List
+from langchain_core.documents import Document
+from langchain_openai import OpenAIEmbeddings
+from langchain.chat_models import init_chat_model
+from langchain_community.document_loaders import WebBaseLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import FAISS
+from langgraph.graph import StateGraph, START, END
+
+# 1. State Schema
+class RAGState(BaseModel):
+    question: str
+    sub_questions: List[str] = []
+    retrieved_docs: List[Document] = []
+    answer: str = ""
+
+# 2. Worker Nodes
+def plan_query(state: RAGState) -> RAGState:
+    prompt = f"""Break the following complex question into 2-3 sub-questions:
+Question: {state.question}
+
+Sub-questions:"""
+    result = llm.invoke(prompt)
+    sub_questions = [line.strip("- ").strip() for line in result.content.strip().split("\n") if line.strip()]
+    return state.model_copy(update={"sub_questions": sub_questions})
+
+def retrieve_for_each(state: RAGState) -> RAGState:
+    all_docs = []
+    for sub in state.sub_questions:
+        docs = retriever.invoke(sub)
+        all_docs.extend(docs)
+    return state.model_copy(update={"retrieved_docs": all_docs})
+
+def generate_final_answer(state: RAGState) -> RAGState:
+    context = "\n\n".join([doc.page_content for doc in state.retrieved_docs])
+    prompt = f"""Use the context below to answer the question.
+
+Context:
+{context}
+
+Question: {state.question}
+"""
+    answer = llm.invoke(prompt).content
+    return state.model_copy(update={"answer": answer})
+
+# 3. Assemble Pipeline
+builder = StateGraph(RAGState)
+builder.add_node("planner", plan_query)
+builder.add_node("retriever", retrieve_for_each)
+builder.add_node("responder", generate_final_answer)
+
+builder.add_edge(START, "planner")
+builder.add_edge("planner", "retriever")
+builder.add_edge("retriever", "responder")
+builder.add_edge("responder", END)
+
+graph = builder.compile()
+```
+
+---
+
+## 17. Module 17: Iterative Retrieval & Self-Correction Loops (`04 - autonomus rag/6-Iterativeretrieval.ipynb`)
+
+### Concept & Mental Model
+**Iterative Retrieval** combines dynamic retrieval, answer generation, evaluation, and query refinement into a continuous feedback loop. When the reflection step identifies missing information, a query re-writer generates a more specific retrieval search term to find the missing facts.
+
+```mermaid
+graph LR
+    START([START]) --> retrieve[retrieve_docs Node]
+    retrieve --> answer[generate_answer Node]
+    answer --> reflect[reflect_on_answer Node]
+    reflect -->|verified or attempts >= 2| END([END])
+    reflect -->|incomplete / unverified| refine[refine_query Node]
+    refine --> retrieve
+```
+
+### Complete Code Implementation
+```python
+from pydantic import BaseModel
+from typing import List
+from langchain_core.documents import Document
+from langchain.chat_models import init_chat_model
+from langgraph.graph import StateGraph, START, END
+
+# 1. State Definition
+class IterativeRAGState(BaseModel):
+    question: str
+    refined_question: str = ""
+    retrieved_docs: List[Document] = []
+    answer: str = ""
+    verified: bool = False
+    attempts: int = 0
+
+# 2. Worker Nodes
+def retrieve_docs(state: IterativeRAGState) -> IterativeRAGState:
+    query = state.refined_question or state.question
+    docs = retriever.invoke(query)
+    return state.model_copy(update={"retrieved_docs": docs})
+
+def generate_answer(state: IterativeRAGState) -> IterativeRAGState:
+    context = "\n\n".join(doc.page_content for doc in state.retrieved_docs)
+    prompt = f"""Use the following context to answer the question:
+
+Context:
+{context}
+
+Question:
+{state.question}
+"""
+    response = llm.invoke(prompt.strip()).content.strip()
+    return state.model_copy(update={"answer": response, "attempts": state.attempts + 1})
+
+def reflect_on_answer(state: IterativeRAGState) -> IterativeRAGState:
+    prompt = f"""Evaluate whether the answer below is factually sufficient and complete.
+
+Question: {state.question}
+Answer: {state.answer}
+
+Respond 'YES' if it's complete, otherwise 'NO' with feedback.
+"""
+    feedback = llm.invoke(prompt).content.lower()
+    verified = "yes" in feedback
+    return state.model_copy(update={"verified": verified})
+
+def refine_query(state: IterativeRAGState) -> IterativeRAGState:
+    prompt = f"""The answer appears incomplete. Suggest a better version of the query that would help retrieve more relevant context.
+
+Original Question: {state.question}
+Current Answer: {state.answer}
+"""
+    new_query = llm.invoke(prompt).content.strip()
+    return state.model_copy(update={"refined_question": new_query})
+
+# 3. Cyclic Graph Assembly
+builder = StateGraph(IterativeRAGState)
+builder.add_node("retrieve", retrieve_docs)
+builder.add_node("answer", generate_answer)
+builder.add_node("reflect", reflect_on_answer)
+builder.add_node("refine", refine_query)
+
+builder.add_edge(START, "retrieve")
+builder.add_edge("retrieve", "answer")
+builder.add_edge("answer", "reflect")
+
+builder.add_conditional_edges(
+    "reflect",
+    lambda s: END if s.verified or s.attempts >= 2 else "refine"
+)
+builder.add_edge("refine", "retrieve")
+
+graph = builder.compile()
+```
+
+---
+
+## 18. Module 18: Multi-Source Answer Synthesis (`04 - autonomus rag/7-answersynthesis.ipynb`)
+
+### Concept & Mental Model
+In modern AI systems, critical knowledge is dispersed across different formats and sources: local text/PDF manuals, YouTube video transcripts, Wikipedia, and research publications (ArXiv). **Answer Synthesis** routes sub-retrieval to multiple specialized tools and merges the heterogeneous context into a unified answer.
+
+```mermaid
+graph TD
+    START([START]) --> text_ret[retrieve_text Node]
+    text_ret --> yt_ret[retrieve_yt Node]
+    yt_ret --> wiki_ret[retrieve_wikipedia Node]
+    wiki_ret --> arxiv_ret[retrieve_arxiv Node]
+    arxiv_ret --> synth[synthesize_answer Node]
+    synth --> END([END])
+```
+
+### Complete Code Implementation
+```python
+from pydantic import BaseModel
+from typing import List
+from langchain_core.documents import Document
+from langchain.chat_models import init_chat_model
+from langchain_community.tools import WikipediaQueryRun
+from langchain_community.utilities import WikipediaAPIWrapper
+from langchain_community.document_loaders import ArxivLoader
+from langgraph.graph import StateGraph, START, END
+
+# 1. State Definition
+class MultiSourceRAGState(BaseModel):
+    question: str
+    text_docs: List[Document] = []
+    yt_docs: List[Document] = []
+    wiki_context: str = ""
+    arxiv_context: str = ""
+    final_answer: str = ""
+
+# 2. Domain Retrieval Nodes
+def retrieve_text(state: MultiSourceRAGState) -> MultiSourceRAGState:
+    docs = text_retriever.invoke(state.question)
+    return state.model_copy(update={"text_docs": docs})
+
+def retrieve_yt(state: MultiSourceRAGState) -> MultiSourceRAGState:
+    docs = youtube_retriever.invoke(state.question)
+    return state.model_copy(update={"yt_docs": docs})
+
+def retrieve_wikipedia(state: MultiSourceRAGState) -> MultiSourceRAGState:
+    tool = WikipediaQueryRun(api_wrapper=WikipediaAPIWrapper())
+    result = tool.run(state.question)
+    return state.model_copy(update={"wiki_context": result})
+
+def retrieve_arxiv(state: MultiSourceRAGState) -> MultiSourceRAGState:
+    results = ArxivLoader(state.question).load()
+    content = "\n\n".join(doc.page_content for doc in results[:2]) or "No papers found."
+    return state.model_copy(update={"arxiv_context": content})
+
+# 3. Multi-Source Synthesizer Node
+def synthesize_answer(state: MultiSourceRAGState) -> MultiSourceRAGState:
+    context = ""
+    context += "\n\n[Internal Docs]\n" + "\n".join([doc.page_content for doc in state.text_docs])
+    context += "\n\n[YouTube Transcript]\n" + "\n".join([doc.page_content for doc in state.yt_docs])
+    context += "\n\n[Wikipedia]\n" + state.wiki_context
+    context += "\n\n[ArXiv]\n" + state.arxiv_context
+
+    prompt = f"""You have retrieved relevant context from multiple sources. Now synthesize a complete and coherent answer.
+
+Question: {state.question}
+
+Context:
+{context}
+
+Final Answer:"""
+    answer = llm.invoke(prompt).content.strip()
+    return state.model_copy(update={"final_answer": answer})
+
+# 4. Graph Assembly
+builder = StateGraph(MultiSourceRAGState)
+builder.add_node("retrieve_text", retrieve_text)
+builder.add_node("retrieve_yt", retrieve_yt)
+builder.add_node("retrieve_wikipedia", retrieve_wikipedia)
+builder.add_node("retrieve_arxiv", retrieve_arxiv)
+builder.add_node("synthesize", synthesize_answer)
+
+builder.add_edge(START, "retrieve_text")
+builder.add_edge("retrieve_text", "retrieve_yt")
+builder.add_edge("retrieve_yt", "retrieve_wikipedia")
+builder.add_edge("retrieve_wikipedia", "retrieve_arxiv")
+builder.add_edge("retrieve_arxiv", "synthesize")
+builder.add_edge("synthesize", END)
+
+graph = builder.compile()
 ```

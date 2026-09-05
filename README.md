@@ -4,7 +4,9 @@ A comprehensive, production-grade study guide and fast-recall reference for **La
 
 ---
 
-## 📑 Master Quick Navigation
+<details><summary>📑 Master Quick Navigation — Needed for rapid module lookup, core topics, and key interview concepts</summary>
+
+### 📑 Master Quick Navigation
 
 | Module | Core Topic | Key Interview Concepts |
 | :--- | :--- | :--- |
@@ -15,10 +17,12 @@ A comprehensive, production-grade study guide and fast-recall reference for **La
 | **[Module 5: Streaming Modes & Token Event Handling](#5-streaming-modes--token-event-handling)** | Runtime Observability | `stream_mode="updates"` vs `values`, Asynchronous Token Streaming (`astream_events`) |
 | **[Module 6: Foundational RAG Paradigms](#6-foundational-rag-paradigms-traditional-agentic--adaptive)** | Retrieval Paradigms | Traditional (1-Pass) vs Agentic vs Adaptive RAG, Document Grading, Query Rewriting |
 | **[Module 7: Autonomous RAG, Query Planning & Reflection](#7-autonomous-rag-query-planning--reflection-loops)** | Fully Autonomous Systems | CoT vs Query Planning, Self-Reflection Loops, Multi-Source Synthesis, Full LangGraph Flow |
-| **[Master Interview Q&A Cheatsheet](#8-master-interview-qa-cheatsheet)** | High-Frequency Questions | 10+ core interview questions with bulletproof 3-point responses |
-| **[Repository Notebook Directory Index](#9-repository-notebook-directory-index)** | Source Code Mapping | Map of all 13 `.ipynb` notebook files in this repository |
+| **[Module 8: Master Interview Q&A Cheatsheet](#8-master-interview-qa-cheatsheet)** | High-Frequency Questions | 10+ core interview questions with bulletproof 3-point responses |
+| **[Module 9: Repository Notebook Directory Index](#9-repository-notebook-directory-index)** | Source Code Mapping | Map of all 18 hands-on `.ipynb` notebook files in this repository |
 
----
+</details>
+
+<details><summary>1. LangGraph Primitives & State Architecture — Needed for stateful agent workflows, cyclic execution, and schema isolation</summary>
 
 ## 1. LangGraph Primitives & State Architecture
 
@@ -95,7 +99,9 @@ print(res)  # {'graph_output': 'SUCCESS: PROCESS ORDER #123'}
 ```
 </details>
 
----
+</details>
+
+<details><summary>2. State Reducers, Chat History & Checkpointer Memory — Needed to prevent state overwrite, persist conversational context, and isolate threads</summary>
 
 ## 2. State Reducers, Chat History & Checkpointer Memory
 
@@ -153,7 +159,9 @@ print(f"Total messages in history: {len(r2['messages'])}")  # 4 messages preserv
 ```
 </details>
 
----
+</details>
+
+<details><summary>3. Router Pattern & Dynamic Branching — Needed to evaluate query intent, route dynamic execution paths, and handle tools_condition</summary>
 
 ## 3. Router Pattern & Dynamic Branching
 
@@ -225,7 +233,9 @@ print(graph.invoke({"query": "I need a refund for my last invoice"}))
 ```
 </details>
 
----
+</details>
+
+<details><summary>4. ReAct Agent Architecture & Tool Binding — Needed for iterative reasoning loops (Act → Observe → Reason), structured tool binding, and ToolMessage handling</summary>
 
 ## 4. ReAct Agent Architecture & Tool Binding
 
@@ -296,7 +306,9 @@ graph = builder.compile()
 ```
 </details>
 
----
+</details>
+
+<details><summary>5. Streaming Modes & Token Event Handling — Needed for real-time state observability, node update diffs, and low-latency token streaming (astream_events)</summary>
 
 ## 5. Streaming Modes & Token Event Handling
 
@@ -346,7 +358,9 @@ async for event in graph.astream_events({"messages": [HumanMessage(content="Hell
 ```
 </details>
 
----
+</details>
+
+<details><summary>6. Foundational RAG Paradigms (Traditional, Agentic & Adaptive) — Needed to compare linear DAG retrieval with cyclic grading and multi-strategy routing</summary>
 
 ## 6. Foundational RAG Paradigms (Traditional, Agentic & Adaptive)
 
@@ -430,7 +444,9 @@ graph = builder.compile()
 ```
 </details>
 
----
+</details>
+
+<details><summary>7. Autonomous RAG, Query Planning & Reflection Loops — Needed for multi-step query decomposition, heterogeneous source synthesis, and hallucination reflection</summary>
 
 ## 7. Autonomous RAG, Query Planning & Reflection Loops
 
@@ -439,9 +455,10 @@ graph = builder.compile()
 * **Chain-of-Thought (CoT) vs. Query Planning & Decomposition:**
   - *Chain-of-Thought (CoT):* LLM reasons step-by-step through natural language thinking paths ($\text{Think} \rightarrow \text{Retrieve} \rightarrow \text{Think} \rightarrow \text{Answer}$).
   - *Query Planning & Decomposition:* LLM breaks a complex multi-part question into explicit, structured sub-queries upfront ($\text{Plan sub-queries} \rightarrow \text{Retrieve all} \rightarrow \text{Synthesize once}$).
+* **Heterogeneous Multi-Source Answer Synthesis:** Real-world enterprise queries are multifaceted and cannot be answered by a single vector index. The agent orchestrates retrieval across diverse modalities and knowledge bases (internal documentation, YouTube transcripts, Wikipedia APIs, ArXiv research papers), segregates them in the state schema, and synthesizes a unified, coherent response.
 * **Self-Reflection & Hallucination Checking:** A dedicated evaluator node inspects the generated answer against the retrieved context to verify that the output is **grounded and non-hallucinatory** before delivering it to the user.
-<img width="1408" height="768" alt="Gemini_Generated_Image_rdc4kirdc4kirdc4" src="https://github.com/user-attachments/assets/31d0a73f-668e-49f1-819d-ab390cb07ec2" />
 
+<img width="1408" height="768" alt="Autonomous RAG Architecture Workflow" src="https://github.com/user-attachments/assets/31d0a73f-668e-49f1-819d-ab390cb07ec2" />
 
 ---
 
@@ -453,6 +470,7 @@ graph = builder.compile()
 | ⚙️ **Execution Cycle** | $\text{Think} \rightarrow \text{Act} \rightarrow \text{Observe} \rightarrow \text{Answer}$ | $\text{Plan} \rightarrow \text{Act} \rightarrow \text{Reflect} \rightarrow \text{Retry} \rightarrow \text{Learn} \rightarrow \text{Answer}$ |
 | 🔄 **Retry & Reflection** | Optional / single-level query rewrite | Core multi-stage loops (Document grading + Answer reflection) |
 | 🧠 **Query Planning** | Optional / single-step retrieval | Multi-step sub-query decomposition (CoT & Planning) |
+| 🌐 **Multi-Source Synthesis** | Single tool / index query | Heterogeneous ingestion (Text, Video, Web, ArXiv) merged into dossier |
 
 ---
 
@@ -486,7 +504,7 @@ A research scientist asks: "Compare the performance of Transformer variants in c
 </details>
 
 <details>
-<summary><b>💻 Basic Code Implementation: Autonomous RAG with CoT & Reflection</b></summary>
+<summary><b>💻 Code Implementation 1: Autonomous RAG with CoT & Reflection Loop</b></summary>
 
 ```python
 from pydantic import BaseModel
@@ -516,15 +534,22 @@ def retrieve_per_step_node(state: AutonomousRAGState) -> AutonomousRAGState:
         docs.extend(retriever.invoke(sq))
     return state.model_copy(update={"retrieved_docs": docs})
 
-# 4. Self-Reflection Node
+# 4. Synthesizer Node
+def synthesize_node(state: AutonomousRAGState) -> AutonomousRAGState:
+    context = "\n\n".join([doc.page_content for doc in state.retrieved_docs])
+    prompt = f"Answer the question using this context:\nContext:\n{context}\n\nQuestion: {state.question}"
+    draft = llm.invoke(prompt).content.strip()
+    return state.model_copy(update={"draft_answer": draft})
+
+# 5. Self-Reflection Node (Groundedness Evaluator)
 def reflect_node(state: AutonomousRAGState) -> AutonomousRAGState:
     context = "\n".join([d.page_content for d in state.retrieved_docs])
-    prompt = f"Is this draft grounded in context?\nDraft: {state.draft_answer}\nContext: {context}"
+    prompt = f"Is this draft grounded in context?\nDraft: {state.draft_answer}\nContext: {context}\nReply YES or NO."
     score = reflector_llm.invoke(prompt)
     grounded = "yes" in score.content.lower()
     return state.model_copy(update={"is_grounded": grounded})
 
-# 5. Assemble Autonomous Pipeline
+# 6. Assemble Autonomous Pipeline
 builder = StateGraph(AutonomousRAGState)
 builder.add_node("planner", plan_steps_node)
 builder.add_node("retriever", retrieve_per_step_node)
@@ -541,7 +566,83 @@ graph = builder.compile()
 ```
 </details>
 
----
+<details>
+<summary><b>💻 Code Implementation 2: Answer Synthesis from Multiple Heterogeneous Sources</b></summary>
+
+```python
+from pydantic import BaseModel
+from typing import List
+from langchain_core.documents import Document
+from langgraph.graph import StateGraph, START, END
+
+# 1. Heterogeneous State Schema
+class MultiSourceRAGState(BaseModel):
+    question: str
+    text_docs: List[Document] = []
+    yt_docs: List[Document] = []
+    wiki_context: str = ""
+    arxiv_context: str = ""
+    final_answer: str = ""
+
+# 2. Specialized Retrieval Nodes
+def retrieve_text(state: MultiSourceRAGState) -> MultiSourceRAGState:
+    docs = text_retriever.invoke(state.question)
+    return state.model_copy(update={"text_docs": docs})
+
+def retrieve_yt(state: MultiSourceRAGState) -> MultiSourceRAGState:
+    docs = youtube_retriever.invoke(state.question)
+    return state.model_copy(update={"yt_docs": docs})
+
+def retrieve_wikipedia(state: MultiSourceRAGState) -> MultiSourceRAGState:
+    result = wikipedia_tool.run(state.question)
+    return state.model_copy(update={"wiki_context": result})
+
+def retrieve_arxiv(state: MultiSourceRAGState) -> MultiSourceRAGState:
+    papers = arxiv_tool.load(state.question)
+    content = "\n\n".join(p.page_content for p in papers[:2])
+    return state.model_copy(update={"arxiv_context": content})
+
+# 3. Multi-Source Dossier Synthesizer
+def synthesize_answer(state: MultiSourceRAGState) -> MultiSourceRAGState:
+    dossier = f"""
+[Internal Enterprise Docs]
+{"\n".join(d.page_content for d in state.text_docs)}
+
+[YouTube Video Transcripts]
+{"\n".join(d.page_content for d in state.yt_docs)}
+
+[Wikipedia Knowledge Base]
+{state.wiki_context}
+
+[ArXiv Academic Research]
+{state.arxiv_context}
+"""
+    prompt = f"Synthesize a complete and coherent answer from this multi-source dossier:\n{dossier}\nQuestion: {state.question}"
+    answer = llm.invoke(prompt).content.strip()
+    return state.model_copy(update={"final_answer": answer})
+
+# 4. Multi-Tool Assembly
+builder = StateGraph(MultiSourceRAGState)
+builder.add_node("get_text", retrieve_text)
+builder.add_node("get_yt", retrieve_yt)
+builder.add_node("get_wiki", retrieve_wikipedia)
+builder.add_node("get_arxiv", retrieve_arxiv)
+builder.add_node("synthesize", synthesize_answer)
+
+builder.add_edge(START, "get_text")
+builder.add_edge("get_text", "get_yt")
+builder.add_edge("get_yt", "get_wiki")
+builder.add_edge("get_wiki", "get_arxiv")
+builder.add_edge("get_arxiv", "synthesize")
+builder.add_edge("synthesize", END)
+
+multi_source_graph = builder.compile()
+```
+</details>
+
+</details>
+
+<details><summary>8. Master Interview Q&A Cheatsheet — Needed for high-frequency technical interviews with 10+ core 3-point architectural answers</summary>
 
 ## 8. Master Interview Q&A Cheatsheet
 
@@ -579,25 +680,33 @@ graph = builder.compile()
 ### Q10: How do you prevent hallucinations in Autonomous RAG systems?
 > **Answer:** By implementing a **Self-Reflection Node** after answer synthesis. The reflector node uses an LLM evaluator to score the candidate answer against the retrieved document context for groundedness. If the answer contains unverified claims, the conditional edge triggers a query refinement and re-retrieval loop before returning the output to the user.
 
----
+</details>
+
+<details><summary>9. Repository Notebook Directory Index — Needed to map hands-on Jupyter notebook implementations across all 18 repository files</summary>
 
 ## 9. Repository Notebook Directory Index
 
-This repository contains 13 hands-on Jupyter notebooks organized across 4 topic directories:
+This repository contains **18 hands-on Jupyter notebooks** organized across 4 modular directories and a practice scratchpad:
 
 | Directory | Notebook File | Key Practical Concepts Covered |
 | :--- | :--- | :--- |
-| **`Langgraph_basics/`** | [`1-simplegraph.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/Langgraph_basics/1-simplegraph.ipynb) | Basic state graphs, node registration, and conditional routing |
-| | [`2-chatbot.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/Langgraph_basics/2-chatbot.ipynb) | Chatbot state reducers (`add_messages`) and streaming |
-| | [`3-DataclassStateSchema.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/Langgraph_basics/3-DataclassStateSchema.ipynb) | State schemas using Python `@dataclass` |
-| | [`4-pydantic.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/Langgraph_basics/4-pydantic.ipynb) | Runtime state validation using Pydantic `BaseModel` |
-| | [`5-ChainsLangGraph.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/Langgraph_basics/5-ChainsLangGraph.ipynb) | Translating LCEL chains into modular LangGraph graphs |
-| | [`6-chatbotswithmultipletools.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/Langgraph_basics/6-chatbotswithmultipletools.ipynb) | Multi-tool ReAct agents (Arxiv, Wikipedia, Calculator) |
-| **`agent_architecture/`** | [`1-react_agent_architecture.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/agent_architecture/1-react_agent_architecture.ipynb) | ReAct agent loops, tool binding (`bind_tools`), `MemorySaver` |
-| | [`2-streaming_and_token_events.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/agent_architecture/2-streaming_and_token_events.ipynb) | State streaming (`updates` vs `values`) and `astream_events` token streaming |
-| **`agentic_rag/`** | [`1-agentic_rag_workflow.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/agentic_rag/1-agentic_rag_workflow.ipynb) | Agentic RAG pipeline with Pydantic state and retriever nodes |
-| | [`2-react_agentic_rag.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/agentic_rag/2-react_agentic_rag.ipynb) | ReAct Agentic RAG with multi-retriever tools & tool factory pattern |
-| | [`3-langgraph_agent_quickstart.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/agentic_rag/3-langgraph_agent_quickstart.ipynb) | Complete self-correcting RAG (grader chain + query rewrite loop) |
-| | [`project.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/agentic_rag/project.ipynb) | End-to-end agentic RAG project implementation |
-- **Explicit state tracking** across multiple steps.
-- **Fine-grained control** over execution paths, human-in-the-loop interventions, and persistence.
+| **`01-Langgraph_basics/`** | [`1-simplegraph.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/01-Langgraph_basics/1-simplegraph.ipynb) | Basic state graphs, node registration, state overwrite, and conditional routing |
+| | [`2-chatbot.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/01-Langgraph_basics/2-chatbot.ipynb) | Chatbot state reducers (`add_messages`), conversation history, and streaming |
+| | [`3-DataclassStateSchema.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/01-Langgraph_basics/3-DataclassStateSchema.ipynb) | State schemas using Python `@dataclass` vs `TypedDict` |
+| | [`4-pydantic.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/01-Langgraph_basics/4-pydantic.ipynb) | Runtime state validation & type coercion using Pydantic `BaseModel` |
+| | [`5-ChainsLangGraph.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/01-Langgraph_basics/5-ChainsLangGraph.ipynb) | Translating LCEL chains into modular LangGraph graphs and tool binding |
+| | [`6-chatbotswithmultipletools.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/01-Langgraph_basics/6-chatbotswithmultipletools.ipynb) | Multi-tool ReAct agents (Arxiv, Wikipedia, Custom Calculator) |
+| **`02-agent_architecture/`** | [`1-react_agent_architecture.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/02-agent_architecture/1-react_agent_architecture.ipynb) | ReAct agent loops, tool binding (`bind_tools`), and persistent `MemorySaver` |
+| | [`2-streaming_and_token_events.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/02-agent_architecture/2-streaming_and_token_events.ipynb) | State streaming (`updates` vs `values`) and real-time `astream_events` token streaming |
+| **`03-agentic_rag/`** | [`1-agentic_rag_workflow.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/03-agentic_rag/1-agentic_rag_workflow.ipynb) | Agentic RAG pipeline with Pydantic state and retriever nodes |
+| | [`2-react_agentic_rag.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/03-agentic_rag/2-react_agentic_rag.ipynb) | ReAct Agentic RAG with multi-retriever tools & tool factory pattern |
+| | [`3-langgraph_agent_quickstart.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/03-agentic_rag/3-langgraph_agent_quickstart.ipynb) | Complete self-correcting RAG (grader chain + query rewrite loop) |
+| | [`project.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/03-agentic_rag/project.ipynb) | End-to-end agentic RAG project implementation with web scrapers |
+| **`04 - autonomus rag/`** | [`3-COTRag.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/04%20-%20autonomus%20rag/3-COTRag.ipynb) | Chain-of-Thought (CoT) multi-step reasoning, sub-queries, and final synthesis |
+| | [`4-Selfreflection.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/04%20-%20autonomus%20rag/4-Selfreflection.ipynb) | Self-Reflection in RAG: LLM critic node, hallucination check, and retry loops |
+| | [`5-QueryPlanningdecomposition.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/04%20-%20autonomus%20rag/5-QueryPlanningdecomposition.ipynb) | Query planning & decomposition: breaking complex prompts into sub-tasks |
+| | [`6-Iterativeretrieval.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/04%20-%20autonomus%20rag/6-Iterativeretrieval.ipynb) | Dynamic iterative retrieval with reflection verification and query refinement |
+| | [`7-answersynthesis.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/04%20-%20autonomus%20rag/7-answersynthesis.ipynb) | Multi-source answer synthesis merging local documents & YouTube transcripts |
+| **Root Scratchpad** | [`pratices.ipynb`](file:///c:/Users/DELL/Desktop/rag_practice2/pratices.ipynb) | Scratchpad for experimental graphs, testing nodes, and prompt validations |
+
+</details>
